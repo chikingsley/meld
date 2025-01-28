@@ -85,3 +85,75 @@ Switched from using SidebarProvider/SidebarInset pattern to a custom implementat
     </div>
   )}
 </div>
+
+```
+
+## PGlite Database Shutdown Issues (2025-01-28)
+
+### Problem
+PGlite database logs showed improper shutdown warnings:
+```
+database system was interrupted; last known up at 2025-01-28 06:47:40 GMT
+database system was not properly shut down; automatic recovery in progress
+```
+
+This occurred due to:
+1. Lack of proper cleanup when browser window closes
+2. Missing checkpoint before database shutdown
+3. Insufficient error handling during cleanup
+
+### Solution
+1. Enhanced `closeDB` function with checkpoint and error handling:
+```typescript
+export async function closeDB() {
+  if (dbInstance?.ready && !dbInstance.closed) {
+    try {
+      await dbInstance.exec('CHECKPOINT');
+      await dbInstance.close();
+      dbInstance = null;
+    } catch (error) {
+      console.error('Error during database shutdown:', error);
+      throw new DatabaseError('Failed to close database properly', error);
+    }
+  }
+}
+```
+
+2. Added window unload handler in DatabaseProvider:
+```typescript
+const cleanup = useCallback(async () => {
+  try {
+    await closeDB();
+  } catch (error) {
+    console.error('Failed to close database:', error);
+  }
+}, []);
+
+useEffect(() => {
+  const handleUnload = (event: BeforeUnloadEvent) => {
+    event.preventDefault();
+    cleanup();
+    event.returnValue = '';
+  };
+
+  window.addEventListener('beforeunload', handleUnload);
+  return () => {
+    window.removeEventListener('beforeunload', handleUnload);
+    cleanup();
+  };
+}, [cleanup]);
+```
+
+### Key Takeaways
+1. Browser-based databases need explicit cleanup on both component unmount and window close
+2. Always ensure data is written to disk (CHECKPOINT) before shutdown
+3. Handle cleanup errors gracefully to prevent data corruption
+4. Use `beforeunload` event to catch browser window closures
+5. Implement proper error boundaries and retry mechanisms for database operations
+
+### Impact
+- More reliable data persistence
+- Reduced risk of database corruption
+- Better error handling and recovery
+- Improved debugging through proper error logging
+- Smoother user experience with automatic recovery

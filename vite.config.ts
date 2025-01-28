@@ -1,5 +1,6 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
+import Terminal from 'vite-plugin-terminal';
 import path from 'path';
 
 const ReactCompilerConfig = {
@@ -24,17 +25,24 @@ export default defineConfig({
     },
   },
   optimizeDeps: {
-    include: ['react/jsx-runtime', 'react/jsx-dev-runtime'] 
+    exclude: ['@electric-sql/pglite']
+  },
+  build: {
+    target: 'esnext',
+    outDir: 'dist',
   },
   plugins: [
-    react({
-      babel: {
+    react({ 
+      babel: { 
         plugins: [
-          ["babel-plugin-react-compiler", ReactCompilerConfig],
-        ],
-      },
-      jsxRuntime: 'automatic',
-    }),
+          ["babel-plugin-react-compiler", ReactCompilerConfig]], 
+        }, 
+        jsxRuntime: 'automatic', 
+      }),
+    // Terminal({ 
+    //   console: 'terminal',
+    //   output: ['terminal', 'console'] 
+    // })
   ],
   server: {
     proxy: {

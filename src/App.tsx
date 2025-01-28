@@ -6,7 +6,7 @@ import { getHumeAccessToken } from './utils/getHumeAccessToken';
 import { Layout } from '@/components/layout/layout';
 import Session from '@/pages/Session';
 import Settings from '@/pages/Settings';
-import { useDatabase } from '@/hooks/useDatabase';
+import { DatabaseProvider } from '@/components/providers/DatabaseProvider';
 
 const clerkPubKey = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY;
 
@@ -17,23 +17,21 @@ function App() {
     getHumeAccessToken().then(setAccessToken);
   }, []);
 
-  // Initialize database
-  useDatabase();
-
   return (
     <BrowserRouter>
       <ClerkProvider publishableKey={clerkPubKey}>
-        <VoiceProvider auth={{ type: 'accessToken', value: accessToken || '' }}>
-          <Routes>
-            <Route path="/" element={<Navigate to="/session" replace />} />
-            <Route element={<Layout />}>
-              <Route path="/session" element={<Session />} />
-              <Route path="/session/:sessionId" element={<Session />} />
-              <Route path="/settings" element={<Settings />} />
-              <Route path="/test" element={<Test />} />
-            </Route>
-          </Routes>
-        </VoiceProvider>
+        <DatabaseProvider>
+          <VoiceProvider auth={{ type: 'accessToken', value: accessToken || '' }}>
+            <Routes>
+              <Route path="/" element={<Navigate to="/session" replace />} />
+              <Route element={<Layout />}>
+                <Route path="/session" element={<Session />} />
+                <Route path="/session/:sessionId" element={<Session />} />
+                <Route path="/settings" element={<Settings />} />
+              </Route>
+            </Routes>
+          </VoiceProvider>
+        </DatabaseProvider>
       </ClerkProvider>
     </BrowserRouter>
   );
