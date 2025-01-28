@@ -2,11 +2,22 @@ export const runtime = 'edge'
 
 import { generateEmbeddings } from './embeddings';
 import { rerank } from './reranker';
-import { createClient } from '@supabase/supabase-js';
-import type { Database } from '../../prisma/supabase';
+import { getDB } from '@/lib/db';
 
-type Message = Database['public']['Tables']['messages']['Row'];
-type MessageWithSimilarity = Message & { similarity: number };
+interface Message {
+  id: string;
+  session_id: string;
+  role: 'user' | 'assistant';
+  content: string;
+  timestamp: Date;
+  metadata: Record<string, any>;
+  embedding: number[];
+  hume_config_id?: string;
+}
+
+interface MessageWithSimilarity extends Message {
+  similarity: number;
+}
 
 interface RankedResult {
   message: Message;
@@ -23,19 +34,6 @@ const SCORING_CONFIG = {
   maxCandidates: 20,        // Get more candidates for reranking
   minSimilarityForRerank: 0.4  // Only rerank if vector similarity is good enough
 };
-
-// Initialize edge-compatible Supabase client
-const supabase = createClient<Database>(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-  {
-    auth: { persistSession: false },
-    global: { 
-      headers: { 'x-my-custom-header': 'mindpattern-edge' },
-      fetch: fetch
-    }
-  }
-);
 
 export class EmbeddingsService {
   private static instance: EmbeddingsService;
@@ -99,22 +97,46 @@ export class EmbeddingsService {
       console.error('Invalid values in embedding:', { embedding });
       throw new Error('Embedding contains invalid values');
     }
-    
-    // Use a transaction to ensure atomic operations
-    const { data, error } = await supabase.rpc('store_message_with_vector', {
-      p_content: content,
-      p_role: role,
-      p_metadata: metadata,
-      p_session_id: sessionId,
-      p_embedding: embedding
-    });
 
-    if (error) {
-      console.error('Error storing message with vector:', error);
-      throw error;
+    const db = await getDB();
+    
+    // First verify the session belongs to the user
+    const sessionCheck = await db.query(
+      `SELECT id FROM sessions 
+       WHERE id = $1 AND user_id = $2`,
+      [sessionId, userId]
+    );
+
+    if (!sessionCheck.rows?.length) {
+      throw new Error('Invalid session ID or user ID');
+    }
+    
+    // Insert message with embedding
+    const result = await db.query<Message>(
+      `INSERT INTO messages (
+        session_id,
+        role,
+        content,
+        metadata,
+        embedding,
+        hume_config_id
+      ) VALUES ($1, $2, $3, $4, $5, $6)
+      RETURNING *`,
+      [
+        sessionId,
+        role,
+        content,
+        JSON.stringify(metadata),
+        embedding,
+        metadata.humeConfigId || null
+      ]
+    );
+
+    if (!result.rows?.[0]) {
+      throw new Error('Failed to store message and vector');
     }
 
-    return data;
+    return result.rows[0];
   }
 
   /**
@@ -130,22 +152,45 @@ export class EmbeddingsService {
     const embedding = await this.generateEmbedding(content);
     const candidateLimit = useReranker ? SCORING_CONFIG.maxCandidates : limit;
     
-    const { data: messages, error } = await supabase
-      .rpc('match_messages', {
-        query_embedding: embedding,
-        similarity_threshold: SCORING_CONFIG.similarityThreshold,
-        match_count: candidateLimit,
-        session_uuid: sessionId
-      });
+    const db = await getDB();
 
-    if (error) throw error;
+    // First verify the session belongs to the user
+    const sessionCheck = await db.query(
+      `SELECT id FROM sessions 
+       WHERE id = $1 AND user_id = $2`,
+      [sessionId, userId]
+    );
 
-    const candidates = messages.map((msg: MessageWithSimilarity) => ({
+    if (!sessionCheck.rows?.length) {
+      throw new Error('Invalid session ID or user ID');
+    }
+    
+    // Query using vector similarity with inner product (IP) distance
+    const result = await db.query<MessageWithSimilarity>(
+      `SELECT m.*,
+        1 - (m.embedding <=> $1) as similarity
+       FROM messages m
+       INNER JOIN sessions s ON m.session_id = s.id
+       WHERE s.id = $2 
+         AND s.user_id = $3
+         AND 1 - (m.embedding <=> $1) > $4
+       ORDER BY similarity DESC
+       LIMIT $5`,
+      [
+        embedding,
+        sessionId,
+        userId,
+        SCORING_CONFIG.similarityThreshold,
+        candidateLimit
+      ]
+    );
+
+    if (!result.rows?.length) return [];
+
+    const candidates = result.rows.map((msg) => ({
       message: msg,
       similarity: msg.similarity
     }));
-
-    if (!candidates.length) return [];
 
     const bestSimilarity = Math.max(...candidates.map((c: RankedResult) => c.similarity));
     const shouldRerank = useReranker && bestSimilarity >= SCORING_CONFIG.minSimilarityForRerank;
@@ -199,23 +244,24 @@ export class EmbeddingsService {
     
     const results = [];
     
-    for (const msg of testMessages) {
+    for (const message of testMessages) {
       const start = performance.now();
       
-      // Test storage
-      await this.storeMessageAndVector(msg, userId, sessionId, 'user');
-      const storeLatency = performance.now() - start;
+      // Test store
+      const storeStart = performance.now();
+      await this.storeMessageAndVector(message, userId, sessionId, 'user', {});
+      const storeLatency = performance.now() - storeStart;
       
-      // Test retrieval
+      // Test retrieve
       const retrieveStart = performance.now();
-      await this.getRelevantContext(msg, userId, sessionId);
+      await this.getRelevantContext(message, userId, sessionId);
       const retrieveLatency = performance.now() - retrieveStart;
       
       results.push({
-        messageLength: msg.length,
+        messageLength: message.length,
         storeLatency,
         retrieveLatency,
-        totalLatency: storeLatency + retrieveLatency
+        totalLatency: performance.now() - start
       });
     }
     
@@ -227,10 +273,5 @@ export const embeddingsService = EmbeddingsService.getInstance();
 
 // Hook for React components
 export function useEmbeddingsService() {
-  return {
-    storeMessageAndVector: embeddingsService.storeMessageAndVector.bind(embeddingsService),
-    getRelevantContext: embeddingsService.getRelevantContext.bind(embeddingsService),
-    runLatencyTest: embeddingsService.runLatencyTest.bind(embeddingsService),
-    generateEmbeddings: embeddingsService.generateEmbeddings.bind(embeddingsService)
-  };
+  return embeddingsService;
 }

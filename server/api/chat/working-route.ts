@@ -1,7 +1,7 @@
 import OpenAI from 'openai';
-import { BASE_PROMPT } from '@/app/api/chat/prompts/base-prompt';
+import { BASE_PROMPT } from '@/prompts/base-prompt';
 import { ContextTracker } from '@/utils/context-tracker';
-import { ToolCall, ToolCallResult, tools, handleWeather, handleUserProfile } from '@/src/types/tools';
+import { ToolCall, ToolCallResult, tools, handleWeather, handleUserProfile } from '@/utils/tool-types';
 import { config, getBaseUrl, getApiKey, getModelName } from '@/utils/config';
 
 const openai = new OpenAI({
@@ -59,18 +59,6 @@ async function handleToolCalls(toolCalls: ToolCall[]): Promise<ToolCallResult[]>
   }
   
   return results;
-}
-
-export async function OPTIONS(req: Request) {
-  return new Response(null, {
-    headers: {
-      'Access-Control-Allow-Origin': '*',
-      'Access-Control-Allow-Methods': 'POST, GET, OPTIONS',
-      'Access-Control-Allow-Headers': '*',
-      'Access-Control-Allow-Credentials': 'true',
-      'Access-Control-Max-Age': '86400'
-    },
-  });
 }
 
 export async function POST(req: Request) {

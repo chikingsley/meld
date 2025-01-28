@@ -15,7 +15,7 @@ export async function getDB() {
     },
   });
 
-  await db.waitReady();
+  await db.waitReady;
   dbInstance = db;
   return db;
 }
@@ -51,7 +51,7 @@ export const initSchema = async (db: PGlite) => {
       content TEXT NOT NULL,
       timestamp TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
       metadata JSONB DEFAULT '{}',
-      embedding vector(384),
+      embedding vector(1024),
       hume_config_id TEXT
     );
 

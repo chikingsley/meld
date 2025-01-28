@@ -6,7 +6,6 @@ import { getHumeAccessToken } from './utils/getHumeAccessToken';
 import { Layout } from '@/components/layout/layout';
 import Session from '@/pages/Session';
 import Settings from '@/pages/Settings';
-import Test from '@/pages/Test';
 import { useDatabase } from '@/hooks/useDatabase';
 
 const clerkPubKey = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY;
