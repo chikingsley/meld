@@ -1,8 +1,8 @@
 import OpenAI from 'openai';
 import { BASE_PROMPT } from '@/prompts/base-prompt';
-import { ContextTracker } from '@/utils/context-tracker';
+import { ContextTracker } from '@/utils/hume-utils/hume-context-tracker';
 import { ToolCall, ToolCallResult, tools, handleWeather, handleUserProfile } from '@/utils/tool-types';
-import { config, getBaseUrl, getApiKey, getModelName } from '@/utils/config';
+import { config, getBaseUrl, getApiKey, getModelName } from '@/utils/hume-utils/llm-model-choice-helper';
 
 const openai = new OpenAI({
   apiKey: getApiKey(config.USE_OPENROUTER),

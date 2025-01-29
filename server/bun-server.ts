@@ -1,10 +1,12 @@
+import handleWebhook from './api/clerk/clerk-webhooks';
+
 const port = process.env.SERVER_PORT || 3001;
 
 const server = Bun.serve({
   port,
   async fetch(req) {
     const url = new URL(req.url);
-    
+
     // Handle CORS preflight
     if (req.method === 'OPTIONS') {
       return new Response(null, {
@@ -32,7 +34,8 @@ const server = Bun.serve({
 
     // Clerk webhook
     if (url.pathname === '/api/webhooks' && req.method === 'POST') {
-      return Response.json({ success: true }, { headers: corsHeaders });
+      console.log('hahahahahh');
+      return handleWebhook(req);
     }
 
     // Chat completions

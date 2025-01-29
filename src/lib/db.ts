@@ -41,7 +41,7 @@ export async function getDB() {
     const db = await PGlite.create({
       dataDir: 'idb://meld-local',
       extensions: { vector },
-      // debug: 3, // Reduced from 5 to 3 for better performance
+      debug: 3, // Reduced from 5 to 3 for better performance
       relaxedDurability: true,
       // Add custom parsers for JSONB
       parsers: {
@@ -180,6 +180,16 @@ export const userOps = {
       return result.rows?.[0] || null;
     } catch (error) {
       throw new DatabaseError('Failed to get user', error);
+    }
+  },
+
+  async deleteUser(userId: string): Promise<void> {
+    const db = await getDB();
+    
+    try {
+      await db.query('DELETE FROM users WHERE id = $1', [userId]);
+    } catch (error) {
+      throw new DatabaseError('Failed to delete user', error);
     }
   }
 };

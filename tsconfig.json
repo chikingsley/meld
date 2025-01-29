@@ -23,7 +23,8 @@
     /* Terminal plugin */
     "types": [
       "vite-plugin-terminal/client",
-      "bun"
+      "bun",
+      "vite/client",
     ],
 
     /* Path aliases */

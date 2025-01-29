@@ -1,4 +1,4 @@
-import { HumeConfig, HumeError } from '@/utils/hume-types'
+import { HumeConfig, HumeError } from '@/utils/hume-utils/hume-types'
 
 function getHumeApiKey() {
   const apiKey = import.meta.env.VITE_HUME_API_KEY
