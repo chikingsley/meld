@@ -1,7 +1,7 @@
 import { Webhook } from 'svix';
-import { createBasicHumeConfig, deleteHumeConfig } from '@/utils/hume-utils/hume-auth';
+import { createBasicHumeConfig, deleteHumeConfig } from 'server/api/clerk/hume-auth';
 import { createClerkClient } from '@clerk/backend';
-import { userOps } from '@/lib/db';
+import { userOps } from '../../../src/lib/db';
 
 const clerkClient = createClerkClient({ 
   secretKey: process.env.CLERK_SECRET_KEY 

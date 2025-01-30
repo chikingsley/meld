@@ -1,6 +1,6 @@
 export const runtime = 'edge'
 
-import { generateEmbeddings } from './embeddings';
+import { generateEmbeddings } from './jina-embeddings';
 import { rerank } from './reranker';
 import { getDB } from '@/lib/db';
 

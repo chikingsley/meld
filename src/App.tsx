@@ -2,7 +2,7 @@ import { VoiceProvider } from '@humeai/voice-react';
 import { useEffect, useState } from 'react';
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 import { ClerkProvider } from '@clerk/react-router'
-import { getHumeAccessToken } from './utils/hume-utils/getHumeAccessToken';
+import { getHumeAccessToken } from './utils/getHumeAccessToken';
 import { Layout } from '@/components/layout/layout';
 import Session from '@/pages/Session';
 import Settings from '@/pages/Settings';
