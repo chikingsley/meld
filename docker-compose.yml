@@ -50,14 +50,14 @@ services:
     volumes:
       - ollama-data:/root/.ollama
     # Start server first, then pull models
-    entrypoint: >
-      /bin/sh -c "
-        ollama serve &
-        sleep 5 &&
-        ollama pull deepseek-r1:1.5b:latest &&
-        ollama pull nomic-embed-text:latest &&
-        ollama pull llama3.2:latest &&
-        wait"
+    # entrypoint: >
+    #   /bin/sh -c "
+    #     ollama serve &
+    #     sleep 5 &&
+    #     ollama pull deepseek-r1:1.5b &&
+    #     ollama pull nomic-embed-text &&
+    #     ollama pull llama3.2 &&
+    #     wait"
 
 volumes:
   postgres-data:

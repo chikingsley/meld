@@ -10,7 +10,6 @@ RUN bun install
 
 # Copy server and src code
 COPY server ./server
-COPY src ./src
 
 # Expose the server port (3001 to match your ngrok setup)
 EXPOSE 3001
