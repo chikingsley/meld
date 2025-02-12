@@ -1,4 +1,5 @@
-import handleWebhook from './api/clerk/clerk-webhooks';
+// server/bun-server.ts
+// import handleWebhook from './api/clerk/clerk-webhooks';
 
 const port = process.env.SERVER_PORT || 3001;
 
@@ -35,12 +36,18 @@ const server = Bun.serve({
     // Clerk webhook
     if (url.pathname === '/api/webhooks' && req.method === 'POST') {
       console.log('hahahahahh');
-      return handleWebhook(req);
+      // return handleWebhook(req);
+      // return Response.json({ status: 'ok' }, { headers: corsHeaders });
     }
 
     // Chat completions
     if (url.pathname === '/api/chat/completions' && req.method === 'POST') {
       return Response.json({ success: true }, { headers: corsHeaders });
+    }
+
+    // Test endpoint
+    if (url.pathname === '/api/test' && req.method === 'GET') {
+      return Response.json({ message: 'Hot reload is working!' }, { headers: corsHeaders });
     }
 
     return new Response('Not Found', { status: 404, headers: corsHeaders });

@@ -2,10 +2,8 @@
 import React, {
     createContext,
     useContext,
-    useReducer,
     ReactNode,
     useCallback,
-    useEffect,
     useMemo,
   } from 'react';
   import { ChatSession } from '@/components/sidebar/nav-sessions';

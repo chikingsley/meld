@@ -1,3 +1,5 @@
+name: meld
+
 services:
   bun-server:
     build: 
@@ -9,56 +11,36 @@ services:
       - ./server:/app/server
       - ./src:/app/src
       - /app/node_modules
-    environment:
-      - NODE_ENV=development
-      - PORT=3001
+    env_file:
+      - .env
+    networks:
+      - app-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3001/api/health"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  ngrok:
+    image: ngrok/ngrok:latest
+    ports:
+      - "4040:4040"
+    env_file:
+      - .env
+    command:
+      - "http"
+      - "--domain=${NGROK_SUBDOMAIN}"
+      - "--authtoken=${NGROK_AUTHTOKEN}"
+      - "bun-server:3001"
     depends_on:
-      - db
-      - realtime
-      - ollama
-
-  db:
-    image: supabase/postgres:15.1.0.117
-    ports:
-      - "5432:5432"
+      bun-server:
+        condition: service_healthy
     environment:
-      POSTGRES_PASSWORD: postgres
-      POSTGRES_USER: postgres
-      POSTGRES_DB: postgres
-    volumes:
-      - postgres-data:/var/lib/postgresql/data
+      NGROK_DEBUG: "true"
+      NGROK_LOG: "stdout"
+    networks:
+      - app-network
 
-  realtime:
-    image: supabase/realtime:latest
-    ports:
-      - "4000:4000"
-    environment:
-      DB_HOST: db
-      DB_NAME: postgres
-      DB_USER: postgres
-      DB_PASSWORD: postgres
-      DB_PORT: 5432
-      PORT: 4000
-      JWT_SECRET: your-super-secret-jwt-token-with-at-least-32-characters
-    depends_on:
-      - db
-
-  ollama:
-    image: ollama/ollama:latest
-    ports:
-      - "11434:11434"
-    volumes:
-      - ollama-data:/root/.ollama
-    # Start server first, then pull models
-    # entrypoint: >
-    #   /bin/sh -c "
-    #     ollama serve &
-    #     sleep 5 &&
-    #     ollama pull deepseek-r1:1.5b &&
-    #     ollama pull nomic-embed-text &&
-    #     ollama pull llama3.2 &&
-    #     wait"
-
-volumes:
-  postgres-data:
-  ollama-data:
+networks:
+  app-network:
+    driver: bridge

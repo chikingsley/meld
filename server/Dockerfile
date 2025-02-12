@@ -2,6 +2,9 @@ FROM oven/bun:latest
 
 WORKDIR /app
 
+# Install curl for healthcheck
+RUN apt-get update && apt-get install -y curl && rm -rf /var/lib/apt/lists/*
+
 # Copy package files
 COPY package.json bun.lock ./
 
@@ -15,4 +18,4 @@ COPY server ./server
 EXPOSE 3001
 
 # Start the server with watch mode
-CMD ["bun", "--watch", "--inspect", "--verbose", "server/bun-server.ts"]
+CMD ["bun", "--watch", "server/bun-server.ts"]

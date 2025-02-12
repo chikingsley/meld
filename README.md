@@ -12,31 +12,88 @@ This project leverages [Hume's React SDK](https://github.com/HumeAI/empathic-voi
 
 ## Table of Contents
 
-- [EVI brainstorming team example](#evi-brainstorming-team-example)
-  - [Description](#description)
-  - [Table of Contents](#table-of-contents)
-  - [Setup](#setup)
-  - [Usage](#usage)
-  - [License](#license)
+- [Description](#description)
+- [Setup](#setup)
+  - [Prerequisites](#prerequisites)
+  - [Environment Variables](#environment-variables)
+  - [Dependencies](#dependencies)
+- [Infrastructure](#infrastructure)
+- [Usage](#usage)
+- [License](#license)
 
 ## Setup
 
-### Configuring Environment Variables
+### Prerequisites
 
-Start by setting up your environment variables. Create a .env file and add your [API Key and your Secret Key](https://beta.hume.ai/settings/keys):
+- Docker and Docker Compose
+- Node.js 18+ and pnpm
+- [Hume AI Account](https://beta.hume.ai/settings/keys)
+
+### Environment Variables
+
+1. Create a `.env` file in the root directory:
 
 ```bash
-echo "VITE_HUME_API_KEY= <YOUR HUME API KEY>" >> .env
-echo "VITE_HUME_SECRET_KEY = <YOUR HUME SECRET KEY>" >> .env
+# Hume AI Keys
+VITE_HUME_API_KEY=<YOUR HUME API KEY>
+VITE_HUME_SECRET_KEY=<YOUR HUME SECRET KEY>
+
+# Supabase Configuration
+POSTGRES_PASSWORD=your-super-secret-postgres-pwd
+POSTGRES_HOST=db
+POSTGRES_PORT=5432
+POSTGRES_DB=postgres
+POSTGRES_USER=postgres
+
+KONG_HTTP_PORT=54321
+KONG_HTTPS_PORT=54322
+SUPABASE_PUBLIC_URL=http://localhost:54321
+
+# JWT Configuration
+JWT_SECRET=your-super-secret-jwt-token
+ANON_KEY=your-anon-key
+SERVICE_ROLE_KEY=your-service-role-key
+
+# Connection Pooling
+POOLER_PORT=6543
+POOLER_POOL_SIZE=15
+POOLER_MAX_CLIENT_CONN=100
 ```
 
 ### Installing Dependencies
 
-Install all required dependencies by running:
-
+1. Install Node.js dependencies:
 ```bash
 pnpm install
 ```
+
+2. Create required directories:
+```bash
+mkdir -p volumes/{api,db,logs}
+touch volumes/api/kong.yml
+touch volumes/logs/vector.yml
+```
+
+## Infrastructure
+
+The project uses Supabase for its backend infrastructure:
+
+- **Database**: PostgreSQL with vector operations support
+- **Real-time**: WebSocket-based real-time subscriptions
+- **Connection Pooling**: Efficient database connection management
+- **Vector Operations**: Support for embedding and similarity searches
+- **Studio**: Web-based database management interface
+
+Start the infrastructure:
+
+```bash
+docker compose up -d
+```
+
+Access points:
+- Studio UI: http://localhost:54323
+- API Gateway: http://localhost:54321
+- Database: localhost:5432
 
 ## Usage
 
@@ -48,7 +105,7 @@ Learn how to create your config and get your `config_id` [here](https://dev.hume
 
 ### Running the Application
 
-Start the application locally with:
+Start the development server:
 
 ```bash
 pnpm dev

@@ -4,8 +4,8 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "concurrently \"bunx --bun vite\" \"bun --watch --inspect --verbose server/bun-server.ts\" \"bunx ngrok http --config=ngrok.yml --domain=tolerant-bengal-hideously.ngrok-free.app 3001\"",
-    "dev:tunnel": "bunx ngrok http --config=ngrok.yml --domain=tolerant-bengal-hideously.ngrok-free.app 3001",
+    "dev": "bunx --bun vite",
+    "dev:local": "concurrently \"bunx --bun vite\" \"bun --watch server/bun-server.ts\"",
     "build": "tsc && vite build",
     "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
     "preview": "vite preview",
