@@ -1,4 +1,5 @@
-import { VoiceProvider } from '@humeai/voice-react';
+// src/App.tsx
+import { VoiceProvider } from '@/lib/hume-lib/VoiceProvider';
 import { useEffect, useState } from 'react';
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 import { ClerkProvider } from '@clerk/react-router'

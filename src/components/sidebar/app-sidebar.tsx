@@ -1,3 +1,4 @@
+// src/components/sidebar/app-sidebar.tsx
 import * as React from "react"
 import { Command, LogIn } from "lucide-react"
 import { SignInButton, SignedIn, SignedOut } from "@clerk/clerk-react"
@@ -5,31 +6,51 @@ import { NavSessions } from "@/components/sidebar/nav-sessions"
 import { NavUser } from "@/components/sidebar/nav-user"
 import { Sidebar, SidebarContent, SidebarFooter, SidebarHeader, SidebarMenu, SidebarMenuButton, SidebarMenuItem } from "@/components/ui/sidebar"
 import { Button } from "../ui/button"
-
-const data = {
-  sessions: [
-    {
-      id: "1",
-      title: "Chat about React Performance",
-      timestamp: "2 hours ago",
-      isActive: true,
-    },
-    {
-      id: "2",
-      title: "TypeScript Discussion",
-      timestamp: "Yesterday",
-    },
-  ],
-}
+import { useSessions } from "@/hooks/use-sessions"
+import { sessionStore } from "@/lib/session-store"
+import { useVoice } from "@/lib/hume-lib/VoiceProvider"
+import { useNavigate } from "react-router-dom"
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
-  const handleNewChat = React.useCallback(() => {
-    console.log("New chat clicked")
-  }, [])
+  const { sessions, createSession, selectSession, deleteSession, updateSession } = useSessions();
+  const { status, disconnect, clearMessages } = useVoice();
+  const navigate = useNavigate();
 
-  const handleSelectSession = React.useCallback((sessionId: string) => {
-    console.log("Selected session:", sessionId)
-  }, [])
+  const handleNewChat = React.useCallback(async () => {
+    // End current call if any
+    if (status.value === 'connected') {
+      await disconnect();
+    }
+    // Clear current messages
+    clearMessages();
+    // Create new session and navigate
+    const newSessionId = createSession();
+    if (newSessionId) {
+      navigate(`/session/${newSessionId}`);
+    }
+  }, [createSession, status.value, disconnect, clearMessages, navigate]);
+
+  const handleSelectSession = React.useCallback(async (sessionId: string) => {
+    // If we're in a call, end it before switching sessions
+    if (status.value === 'connected') {
+      await disconnect();
+    }
+    clearMessages();
+    selectSession(sessionId);
+    navigate(`/session/${sessionId}`);
+  }, [selectSession, navigate, status.value, disconnect, clearMessages]);
+
+  const handleDeleteSession = React.useCallback((sessionId: string) => {
+    deleteSession(sessionId);
+    // If we deleted the active session, create a new one
+    if (sessions.find(s => s.id === sessionId)?.isActive) {
+      handleNewChat();
+    }
+  }, [sessions, handleNewChat, deleteSession]);
+
+  const handleRenameSession = React.useCallback((sessionId: string, newTitle: string) => {
+    updateSession(sessionId, { title: newTitle });
+  }, [updateSession]);
 
   return (
     <Sidebar variant="inset" {...props}>
@@ -51,7 +72,11 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
           <SidebarMenuItem>
             <div className="px-2">
               <div className="my-2 border-t" />
-              <Button variant="default" onClick={handleNewChat} className="w-full flex items-center gap-1.5 rounded-lg">
+              <Button 
+                variant="default" 
+                onClick={handleNewChat} 
+                className="w-full flex items-center gap-1.5 rounded-lg"
+              >
                 <Command className="size-4" />
                 Start New Chat 
               </Button>
@@ -62,8 +87,10 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
       </SidebarHeader>
       <SidebarContent>
         <NavSessions 
-          sessions={data.sessions}
+          sessions={sessions}
           onSelectSession={handleSelectSession}
+          onDeleteSession={handleDeleteSession}
+          onRenameSession={handleRenameSession}
         />
       </SidebarContent>
       <SidebarFooter>

@@ -1,3 +1,4 @@
+// src/hooks/useDatabase.ts
 import { useEffect, useRef, useState } from 'react';
 import { useUser } from '@clerk/clerk-react';
 import { getDB, initSchema, userOps } from '@/lib/db';

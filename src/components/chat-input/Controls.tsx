@@ -1,4 +1,5 @@
-import { useVoice } from "@humeai/voice-react";
+// src/components/chat-input/Controls.tsx
+import { useVoice } from "@/lib/hume-lib/VoiceProvider";
 import { Button } from "@/components/ui/button";
 import { Mic, MicOff, Phone } from "lucide-react";
 import { Toggle } from "@/components/ui/toggle";

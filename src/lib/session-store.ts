@@ -1,4 +1,15 @@
-import { useVoice } from "@humeai/voice-react";
+import { useVoice } from "@/lib/hume-lib/VoiceProvider";
+
+export interface StoredMessage {
+  message: {
+    role: string;
+    content: string;
+  };
+  expressions?: Record<string, number>;
+  labels?: Record<string, number>;
+  prosody?: Record<string, number>;
+  timestamp: string;
+}
 
 export interface StoredSession {
   id: string;
@@ -6,6 +17,7 @@ export interface StoredSession {
   timestamp: string;
   title?: string;
   lastMessage?: string;
+  messages: StoredMessage[];
 }
 
 const SESSIONS_KEY = 'meld_sessions';
@@ -22,6 +34,7 @@ export const sessionStore = {
       id: crypto.randomUUID(),
       userId,
       timestamp: new Date().toISOString(),
+      messages: [],
     };
     
     sessions.unshift(newSession);
@@ -47,6 +60,28 @@ export const sessionStore = {
 
   getUserSessions(userId: string): StoredSession[] {
     return this.getSessions().filter(s => s.userId === userId);
+  },
+
+  addMessage(sessionId: string, message: StoredMessage) {
+    const sessions = this.getSessions();
+    const index = sessions.findIndex(s => s.id === sessionId);
+    if (index !== -1) {
+      if (!sessions[index].messages) {
+        sessions[index].messages = [];
+      }
+      sessions[index].messages.push(message);
+      localStorage.setItem(SESSIONS_KEY, JSON.stringify(sessions));
+      console.log('Updated session messages:', sessions[index].messages);
+    } else {
+      console.error('Session not found:', sessionId);
+    }
+  },
+
+  getMessages(sessionId: string): StoredMessage[] {
+    const sessions = this.getSessions();
+    const session = sessions.find(s => s.id === sessionId);
+    const messages = session?.messages || [];
+    return messages;
   }
 };
 

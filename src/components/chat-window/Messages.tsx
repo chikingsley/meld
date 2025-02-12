@@ -1,14 +1,18 @@
+// src/components/chat-window/Messages.tsx
 import { cn } from "@/utils";
-import { useVoice } from "@humeai/voice-react";
+import { useVoice } from "@/lib/hume-lib/VoiceProvider";
 import Expressions from "./Expressions";
 import { AnimatePresence, motion } from "framer-motion";
 import { ComponentRef, forwardRef } from "react";
 
+interface MessagesProps {
+  messages: any[];
+}
+
 const Messages = forwardRef<
   ComponentRef<typeof motion.div>,
-  Record<never, never>
->(function Messages(_, ref) {
-  const { messages } = useVoice();
+  MessagesProps
+>(function Messages({ messages }, ref) {
 
   return (
     <motion.div
@@ -49,13 +53,24 @@ const Messages = forwardRef<
                 >
                   <div
                     className={cn(
-                      "text-xs capitalize font-medium leading-none opacity-50 pt-4 px-3",
+                      "flex justify-between items-center",
+                      "text-xs font-medium leading-none opacity-50 pt-4 px-3",
                     )}
                   >
-                    {msg.message.role}
+                    <span className="capitalize">{msg.message.role}</span>
+                    {msg.timestamp && (
+                      <span className="text-muted-foreground">
+                        {new Date(msg.timestamp).toLocaleTimeString([], {
+                          hour: '2-digit',
+                          minute: '2-digit'
+                        })}
+                      </span>
+                    )}
                   </div>
                   <div className={"pb-3 px-3"}>{msg.message.content}</div>
-                  <Expressions values={msg.models.prosody?.scores} />
+                  {msg.models?.prosody?.scores && (
+                    <Expressions values={msg.models.prosody.scores} />
+                  )}
                 </motion.div>
               );
             }

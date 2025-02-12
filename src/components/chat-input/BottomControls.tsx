@@ -1,3 +1,4 @@
+// src/components/chat-input/BottomControls.tsx
 import { AnimatePresence, motion } from "framer-motion"
 import React from "react"
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
@@ -7,17 +8,27 @@ import { useIsMobile } from "@/hooks/use-mobile"
 import { ChatInputForm } from "@/components/chat-input/ChatInputForm"
 import Controls from "./Controls"
 import { cn } from "@/utils"
-import { useVoice } from "@humeai/voice-react";
+import { useVoice } from "@/lib/hume-lib/VoiceProvider";
 
-export function BottomControls() {
-  const { status, connect, disconnect } = useVoice()
+interface BottomControlsProps {
+  sessionId?: string;
+  onNewSession?: () => void;
+}
+
+export function BottomControls({ sessionId, onNewSession }: BottomControlsProps) {
+  const { status, connect, disconnect, sendSessionSettings, clearMessages } = useVoice()
   const [isTransitioning, setIsTransitioning] = React.useState(false)
   const isMobile = useIsMobile()
 
   const handleStartCall = async () => {
     setIsTransitioning(true)
     try {
-      await connect()
+      if (sessionId) {
+        // Always set session ID before connecting
+        await sendSessionSettings({ customSessionId: sessionId })
+        // Don't clear messages when starting call
+        await connect()
+      }
     } catch (error) {
       console.error('Connection failed:', error)
     } finally {
@@ -28,12 +39,22 @@ export function BottomControls() {
   const handleEndCall = async () => {
     setIsTransitioning(true)
     try {
+      // Just disconnect, don't clear messages
       await disconnect()
     } catch (error) {
       console.error('Disconnect failed:', error)
     } finally {
       setIsTransitioning(false)
     }
+  }
+
+  const handleNewChat = async () => {
+    if (status.value === 'connected') {
+      await handleEndCall()
+    }
+    // Clear messages when starting a new chat
+    clearMessages()
+    onNewSession?.()
   }
   
   // Use isTransitioning to show optimistic UI updates
