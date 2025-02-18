@@ -1,38 +1,60 @@
+// src/pages/Session.tsx
 import { useParams, useNavigate } from "react-router-dom";
 import ClientComponent from "@/components/chat-window/Chat";
-import { useSessions } from "@/hooks/use-sessions";
 import { useEffect } from "react";
+import { useSessionContext } from "@/contexts/SessionContext"; // Use the context
 
 export default function Session() {
-  const { sessionId } = useParams();
+  const { sessionId: urlSessionId } = useParams(); // Get URL parameter
   const navigate = useNavigate();
-  const { createSession, selectSession, sessions } = useSessions();
+  const {
+    createSession,
+    selectSession,
+    currentSessionId,
+    sessions,
+    loading,
+    error,
+  } = useSessionContext(); // Get state and actions from context
 
-  // Handle initial session
+  // Handle initial session creation and selection
   useEffect(() => {
-    if (!sessionId && sessions.length === 0) {
-      const newSessionId = createSession();
-      if (newSessionId) {
-        navigate(`/session/${newSessionId}`);
-      }
-    } else if (sessionId) {
-      selectSession(sessionId);
+    if (!urlSessionId && sessions.length === 0) {
+      // If no session ID in URL *and* no sessions exist, create a new one
+      createSession(); // This will navigate
+    } else if (urlSessionId) {
+      //If we have a urlSessionId, we also need to update the currentSessionId
+      selectSession(urlSessionId)
     }
-  }, [sessionId, sessions.length]);
+  }, [urlSessionId, sessions.length, createSession, selectSession, navigate]);
+
+
+  //We don't need this, since the currentSessionId will update
+  // useEffect(() => {
+  //   if(currentSessionId) {
+  //     selectSession(currentSessionId) //This will call navigate
+  //   }
+
+  // }, [currentSessionId, selectSession])
 
   const handleNewSession = () => {
-    const newSessionId = createSession();
-    if (newSessionId) {
-      navigate(`/session/${newSessionId}`);
-    }
+      //Create session will do the navigation
+      createSession();
   };
+
+  if (loading) {
+    return <div>Loading...</div>; // Display a loading indicator
+  }
+
+  if (error) {
+    return <div>Error: {error}</div>; // Display an error message
+  }
+  
+  // Determine the active session ID.  Prefer the context's ID.
+  const activeSessionId = currentSessionId || urlSessionId;
 
   return (
     <div className="flex-1 flex flex-col h-full bg-background">
-      <ClientComponent 
-        sessionId={sessionId} 
-        onNewSession={handleNewSession}
-      />
+      <ClientComponent />
     </div>
   );
 }

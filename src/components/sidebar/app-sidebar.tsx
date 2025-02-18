@@ -10,8 +10,9 @@ import { useVoice } from "@/lib/hume-lib/VoiceProvider"
 import { useNavigate } from "react-router-dom"
 import { useSessionContext } from "@/contexts/SessionContext"
 
-export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
-  const { sessions, createSession, selectSession, deleteSession, updateSession } = useSessionContext();
+const AppSidebarComponent = ({ className, ...props }: React.ComponentProps<typeof Sidebar>) => {
+  console.log("AppSidebar rendering");  // Add logging to track renders
+  const { sessions, createSession, selectSession, deleteSession, updateSession, loading, error } = useSessionContext();
   const { status, disconnect, clearMessages } = useVoice();
   const navigate = useNavigate();
 
@@ -22,12 +23,9 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
     }
     // Clear current messages
     clearMessages();
-    // Create new session and navigate
-    const newSessionId = createSession();
-    if (newSessionId) {
-      navigate(`/session/${newSessionId}`);
-    }
-  }, [createSession, status.value, disconnect, clearMessages, navigate]);
+    // Create new session and navigate (createSession now handles navigation)
+    await createSession();
+  }, [createSession, status.value, disconnect, clearMessages]);
 
   const handleSelectSession = React.useCallback(async (sessionId: string) => {
     // If we're in a call, end it before switching sessions
@@ -39,20 +37,28 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
     navigate(`/session/${sessionId}`);
   }, [selectSession, navigate, status.value, disconnect, clearMessages]);
 
-  const handleDeleteSession = React.useCallback((sessionId: string) => {
-    deleteSession(sessionId);
-    // If we deleted the active session, create a new one
-    if (sessions.find(s => s.id === sessionId)?.isActive) {
-      handleNewChat();
+  const handleDeleteSession = React.useCallback(async (sessionId: string) => {
+    try {
+      await deleteSession(sessionId);
+      // If we deleted the active session, create a new one
+      if (sessions.find(s => s.id === sessionId)?.isActive) {
+        await handleNewChat();
+      }
+    } catch (err) {
+      console.error('Failed to delete session:', err);
     }
   }, [sessions, handleNewChat, deleteSession]);
 
-  const handleRenameSession = React.useCallback((sessionId: string, newTitle: string) => {
-    updateSession(sessionId, { title: newTitle });
+  const handleRenameSession = React.useCallback(async (sessionId: string, newTitle: string) => {
+    try {
+      await updateSession(sessionId, { title: newTitle });
+    } catch (err) {
+      console.error('Failed to rename session:', err);
+    }
   }, [updateSession]);
 
   return (
-    <Sidebar variant="inset" {...props}>
+    <Sidebar variant="inset" className={className} {...props}>
       <SidebarHeader>
         <SidebarMenu>
           <SidebarMenuItem>
@@ -75,22 +81,32 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                 variant="default" 
                 onClick={handleNewChat} 
                 className="w-full flex items-center gap-1.5 rounded-lg"
+                disabled={loading}
               >
                 <Command className="size-4" />
-                Start New Chat 
+                {loading ? 'Creating Chat...' : 'Start New Chat'}
               </Button>
+              {error && (
+                <p className="text-xs text-destructive mt-2">{error}</p>
+              )}
               <div className="my-2 border-t" />
             </div>
           </SidebarMenuItem>
         </SidebarMenu>
       </SidebarHeader>
       <SidebarContent>
-        <NavSessions 
-          sessions={sessions}
-          onSelectSession={handleSelectSession}
-          onDeleteSession={handleDeleteSession}
-          onRenameSession={handleRenameSession}
-        />
+        {loading && sessions.length === 0 ? (
+          <div className="p-4 text-sm text-muted-foreground">Loading sessions...</div>
+        ) : error && sessions.length === 0 ? (
+          <div className="p-4 text-sm text-destructive">{error}</div>
+        ) : (
+          <NavSessions 
+            sessions={sessions}
+            onSelectSession={handleSelectSession}
+            onDeleteSession={handleDeleteSession}
+            onRename={handleRenameSession}
+          />
+        )}
       </SidebarContent>
       <SidebarFooter>
         <SignedIn>
@@ -117,3 +133,6 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
     </Sidebar>
   )
 }
+
+// Memoize the entire component
+export const AppSidebar = React.memo(AppSidebarComponent);

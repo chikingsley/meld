@@ -12,6 +12,7 @@ import type {
   UserMessage,
   WebSocketError,
 } from 'hume/api/resources/empathicVoice';
+import type { CloseEvent } from 'hume/core'; // Import CloseEvent
 import z from 'zod';
 
 type WithReceivedAt<T> = T & { receivedAt: Date };
@@ -28,6 +29,17 @@ export type ToolError = WithReceivedAt<ToolErrorMessage>;
 export type ToolResponse = WithReceivedAt<ToolResponseMessage>;
 export type UserInterruptionMessage = WithReceivedAt<UserInterruption>;
 export type UserTranscriptMessage = WithReceivedAt<UserMessage>;
+export type ConnectionMessage =
+  | {
+      type: 'socket_connected';
+      receivedAt: Date;
+    }
+  | {
+      type: 'socket_disconnected';
+      code: CloseEvent['code']; // Use the CloseEvent type from 'hume/core'
+      reason: CloseEvent['reason'];
+      receivedAt: Date;
+    };
 
 export const TimeSliceSchema = z.object({
   begin: z.number(),

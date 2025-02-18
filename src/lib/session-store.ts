@@ -72,7 +72,7 @@ export const sessionStore = {
       }
       sessions[index].messages.push(message);
       localStorage.setItem(SESSIONS_KEY, JSON.stringify(sessions));
-      console.log('Updated session messages:', sessions[index].messages);
+      console.log('Updated session messages');
     } else {
       console.error('Session not found:', sessionId);
     }

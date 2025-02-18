@@ -124,7 +124,7 @@ export default function ClientComponent({ sessionId, onNewSession }: ClientCompo
     <div className={"relative grow flex flex-col mx-auto w-full h-full overflow-hidden"}>
         <Messages ref={ref} messages={displayMessages} />
         <BottomControls 
-          sessionId={sessionId}
+          sessionId={urlSessionId}
           onNewSession={onNewSession}
         />
     </div>
