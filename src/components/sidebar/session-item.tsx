@@ -47,6 +47,127 @@ const editingReducer = (state: EditingState, action: EditingAction): EditingStat
   }
 }
 
+const SessionButtons = memo(({ onEdit, onConfirm, onCancel, onDelete }: {
+  onEdit: () => void;
+  onConfirm: () => void;
+  onCancel: () => void;
+  onDelete: () => void;
+}) => (
+  <div className="absolute right-2 flex items-center gap-1">
+    <Button
+      variant="ghost"
+      size="icon"
+      className="size-6"
+      onClick={onEdit}
+    >
+      <Pencil className="size-3" strokeWidth={1.5} />
+    </Button>
+    <Button
+      variant="ghost"
+      size="icon"
+      className="size-6 text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
+      onClick={onDelete}
+      title="Delete session"
+    >
+      <Trash2 className="size-3" strokeWidth={1.5} />
+    </Button>
+  </div>
+));
+
+const EditButtons = memo(({ onConfirm, onCancel }: {
+  onConfirm: () => void;
+  onCancel: () => void;
+}) => (
+  <div className="absolute right-2 flex items-center gap-1">
+    <Button
+      variant="ghost"
+      size="icon"
+      className="size-6 text-green-500"
+      onClick={onConfirm}
+    >
+      <Check className="size-3" strokeWidth={1.5} />
+    </Button>
+    <Button
+      variant="ghost"
+      size="icon"
+      className="size-6 text-destructive"
+      onClick={onCancel}
+    >
+      <X className="size-3" strokeWidth={1.5} />
+    </Button>
+  </div>
+));
+
+const SessionContent = memo(({ 
+  title, 
+  timestamp, 
+  isActive 
+}: { 
+  title: string; 
+  timestamp: string; 
+  isActive: boolean;
+}) => (
+  <>
+    <MessageSquare className="size-4 shrink-0" strokeWidth={1.5} />
+    <div className="flex flex-1 flex-col min-w-0 gap-0.5">
+      <span className="truncate font-medium">{title}</span>
+      <span className="truncate text-xs text-muted-foreground/80">
+        {timestamp}
+      </span>
+    </div>
+  </>
+));
+
+const EditingMode = memo(({ 
+  title, 
+  timestamp, 
+  onTitleChange, 
+  onKeyDown,
+  onRename,
+  onCancel 
+}: { 
+  title: string;
+  timestamp: string;
+  onTitleChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  onKeyDown: (e: React.KeyboardEvent<HTMLInputElement>) => void;
+  onRename: () => void;
+  onCancel: () => void;
+}) => (
+  <div className="flex items-center gap-1 px-4 py-2">
+    <MessageSquare className="size-4 shrink-0" />
+    <div className="flex flex-1 flex-col min-w-0">
+      <div className="flex items-center gap-1">
+        <Input
+          value={title}
+          onChange={onTitleChange}
+          className="h-6 text-sm"
+          autoFocus
+          onKeyDown={onKeyDown}
+        />
+        <Button
+          variant="ghost"
+          size="icon"
+          className="size-6"
+          onClick={onRename}
+        >
+          <Check className="size-3" />
+        </Button>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="size-6"
+          onClick={onCancel}
+        >
+          <X className="size-3" />
+        </Button>
+      </div>
+      <span className="truncate text-xs text-muted-foreground">
+        {timestamp}
+      </span>
+    </div>
+  </div>
+));
+
 export const SessionItem = memo(({
   session,
   onSelect,
@@ -133,12 +254,12 @@ export const SessionItem = memo(({
           <SidebarMenuButton
             onClick={handleSelect}
             data-active={session.isActive}
-            className="w-full pr-20"
+            className="w-full pr-20 transition-colors hover:bg-accent/50"
           >
-            <MessageSquare className="size-4 shrink-0" />
-            <div className="flex flex-1 flex-col min-w-0">
-              <span className="truncate">{session.title}</span>
-              <span className="truncate text-xs text-muted-foreground">
+            <MessageSquare className="size-4 shrink-0" strokeWidth={1.5} />
+            <div className="flex flex-1 flex-col min-w-0 gap-0.5">
+              <span className="truncate font-medium">{session.title}</span>
+              <span className="truncate text-xs text-muted-foreground/80">
                 {session.timestamp}
               </span>
             </div>
@@ -155,10 +276,11 @@ export const SessionItem = memo(({
             <Button
               variant="ghost"
               size="icon"
-              className="size-6 text-destructive"
+              className="size-6 text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
               onClick={handleDelete}
+              title="Delete session"
             >
-              <Trash2 className="size-3" />
+              <Trash2 className="size-3" strokeWidth={1.5} />
             </Button>
           </div>
         </>

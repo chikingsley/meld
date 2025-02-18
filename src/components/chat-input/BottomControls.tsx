@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Menu } from "lucide-react"
 import { useIsMobile } from "@/hooks/use-mobile"
 import { ChatInputForm } from "@/components/chat-input/ChatInputForm"
-import Controls from "./Controls"
+import Controls from "@/components/chat-input/controls"
 import { cn } from "@/utils"
 import { useVoiceState } from "@/lib/hume-lib/contexts/VoiceStateContext"
 import { useVoiceActions } from "@/lib/hume-lib/contexts/VoiceActionsContext"
@@ -25,6 +25,17 @@ const BottomControls = React.memo(({ sessionId, onNewSession }: BottomControlsPr
   const [isTransitioning, setIsTransitioning] = React.useState(false)
   const isMobile = useIsMobile()
 
+  const handleEndCall = React.useCallback(async () => {
+    setIsTransitioning(true)
+    try {
+      await disconnect()
+    } catch (error) {
+      console.error('Disconnect failed:', error)
+    } finally {
+      setIsTransitioning(false)
+    }
+  }, [disconnect])
+
   const handleStartCall = async () => {
     console.log('Starting call with sessionId:', sessionId);
     setIsTransitioning(true)
@@ -42,17 +53,7 @@ const BottomControls = React.memo(({ sessionId, onNewSession }: BottomControlsPr
     }
   }
 
-  const handleEndCall = async () => {
-    setIsTransitioning(true)
-    try {
-      // Just disconnect, don't clear messages
-      await disconnect()
-    } catch (error) {
-      console.error('Disconnect failed:', error)
-    } finally {
-      setIsTransitioning(false)
-    }
-  }
+
 
   const handleNewChat = async () => {
     if (status.value === 'connected') {
@@ -105,7 +106,9 @@ const BottomControls = React.memo(({ sessionId, onNewSession }: BottomControlsPr
                   layout: { duration: 0.2 }
                 }}
               >
-                <Controls onEndCall={handleEndCall} />
+                <Controls 
+                  onEndCall={handleEndCall} 
+                />
               </motion.div>
             ) : (
               <motion.div

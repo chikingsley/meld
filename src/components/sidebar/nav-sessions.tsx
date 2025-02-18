@@ -7,7 +7,7 @@ import {
   SidebarMenu,
 } from "@/components/ui/sidebar";
 import { SessionItem, type ChatSession } from "./session-item"; // Import SessionItem
-import { memo, useCallback } from "react";
+import React, { memo, useCallback } from "react";
 
 export interface NavSessionsProps {
   sessions: ChatSession[];
