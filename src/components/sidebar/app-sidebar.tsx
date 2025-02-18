@@ -11,10 +11,37 @@ import { useNavigate } from "react-router-dom"
 import { useSessionContext } from "@/contexts/SessionContext"
 
 const AppSidebarComponent = ({ className, ...props }: React.ComponentProps<typeof Sidebar>) => {
-  console.log("AppSidebar rendering");  // Add logging to track renders
-  const { sessions, createSession, selectSession, deleteSession, updateSession, loading, error } = useSessionContext();
+  const { sessions, currentSessionId, createSession, selectSession, deleteSession, updateSession, loading, error } = useSessionContext();
   const { status, disconnect, clearMessages } = useVoice();
   const navigate = useNavigate();
+
+  // console.log("AppSidebar rendering", {
+  //   sessionsLength: sessions.length,
+  //   statusValue: status.value,
+  //   loading,
+  //   error
+  // });
+
+  // Remove unused handler declarations
+  const sessionHandlers = React.useMemo(() => ({
+    handleSelectSession: async (id: string) => {
+      if (status.value === 'connected') {
+        await disconnect();
+      }
+      clearMessages();
+      await selectSession(id);
+      navigate(`/session/${id}`);
+    },
+    handleDeleteSession: async (id: string) => {
+      if (id === currentSessionId && status.value === 'connected') {
+        await disconnect();
+      }
+      await deleteSession(id);
+    },
+    handleRenameSession: async (id: string, newTitle: string) => {
+      await updateSession(id, { title: newTitle });
+    }
+  }), [status.value, disconnect, clearMessages, selectSession, navigate, currentSessionId, deleteSession, updateSession]);
 
   const handleNewChat = React.useCallback(async () => {
     // End current call if any
@@ -102,9 +129,9 @@ const AppSidebarComponent = ({ className, ...props }: React.ComponentProps<typeo
         ) : (
           <NavSessions 
             sessions={sessions}
-            onSelectSession={handleSelectSession}
-            onDeleteSession={handleDeleteSession}
-            onRenameSession={handleRenameSession}
+            onSelectSession={sessionHandlers.handleSelectSession}
+            onDeleteSession={sessionHandlers.handleDeleteSession}
+            onRenameSession={sessionHandlers.handleRenameSession}
           />
         )}
       </SidebarContent>

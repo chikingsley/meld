@@ -1,195 +1,181 @@
 # Performance Optimization Plan
 
 ## Problem Statement
-Several components are re-rendering excessively during voice calls, particularly components using the `useVoice` hook. This is impacting performance and needs to be optimized.
+The application is experiencing excessive re-renders during voice calls due to a monolithic context provider (VoiceProvider) that combines frequently updating audio data with stable application state. This causes unnecessary re-renders in components that only need access to stable state values.
 
-## Components to Optimize
+## Component Analysis
 
-### 1. Chat Component (`Chat.tsx`)
-#### Current Issues:
-- Re-renders on every message change
-- Complex message processing on every render
-- Multiple useEffects watching messages/status
+### VoiceProvider Issues
+1. Combines all voice-related state into a single context:
+   - Frequently updating FFT data (micFft, fft)
+   - Stable state (status, error, isPaused)
+   - Message state (messages, lastVoiceMessage)
+   - Audio control state (isMuted, isPlaying)
 
-#### Optimizations:
+2. Context value includes too many dependencies in useMemo:
 ```typescript
-// 1. Move message processing into useMemo
-const processedMessages = useMemo(() => {
-  const converted = storedMessages.map(/* conversion logic */);
-  const withIds = messages.map(/* id logic */);
-  return deduplicateMessages(converted, withIds);
-}, [storedMessages, messages]);
-
-// 2. Memoize child components
-const MemoizedMessages = memo(Messages);
-const MemoizedBottomControls = memo(BottomControls);
-
-// 3. Use useReducer for message state
-const [messageState, dispatch] = useReducer(messageReducer, initialState);
-
-// 4. Debounce scroll effect
-const debouncedScroll = useMemo(
-  () => debounce((ref) => {
-    /* scroll logic */
-  }, 200),
-  []
+const ctx = useMemo(
+  () => ({
+    connect,
+    disconnect,
+    fft: player.fft,          // Updates frequently
+    micFft: mic.fft,          // Updates frequently
+    isMuted: mic.isMuted,     // Stable
+    messages: messageStore.messages,  // Updates with messages
+    status,                   // Stable
+    // ... many more values
+  }),
+  [/* long list of dependencies */]
 );
 ```
 
-### 2. BottomControls Component (`BottomControls.tsx`)
-#### Current Issues:
-- Re-renders on every status change
-- Unmemoized handlers
-- Nested animation components
-
-#### Optimizations:
-```typescript
-// 1. Memoize handlers
-const handleStartCall = useCallback(async () => {
-  /* existing logic */
-}, [sessionId, sendSessionSettings, connect]);
-
-// 2. Extract Controls component
-const MemoizedControls = memo(Controls);
-
-// 3. Memoize computed values
-const showControls = useMemo(() => 
-  status.value === "connected" || isTransitioning,
-  [status.value, isTransitioning]
-);
+### Component Re-render Chain
+```
+VoiceProvider (context updates frequently)
+├── AppSidebar (re-renders on status changes)
+│   └── NavSessions (memoized, but parent re-renders)
+├── BottomControls (unmemoized, uses status)
+│   └── Controls (unmemoized, uses micFft)
+│       └── MicFFT (receives new FFT data constantly)
+└── Other components using useVoice()
 ```
 
-### 3. NavSessions Component (`nav-sessions.tsx`)
-#### Current Issues:
-- Each SessionItem re-renders on parent updates
-- Unmemoized event handlers
-- Editing state causes unnecessary re-renders
+## Optimization Strategy
 
-#### Optimizations:
+### 1. Context Segregation
+Split VoiceProvider into multiple specialized contexts based on update frequency:
+
 ```typescript
-// 1. Memoize SessionItem component
-const MemoizedSessionItem = memo(SessionItem);
+// High-frequency updates (audio visualization)
+const AudioVisualizationContext = createContext<{
+  fft: number[];
+  micFft: number[];
+} | null>(null);
 
-// 2. Memoize handlers at parent level
-const handleSelect = useCallback((id: string) => {
-  onSelectSession(id);
-}, [onSelectSession]);
+// Medium-frequency updates (messages)
+const VoiceMessagesContext = createContext<{
+  messages: Message[];
+  lastVoiceMessage: Message | null;
+  lastUserMessage: Message | null;
+} | null>(null);
 
-// 3. Optimize editing state
-const [editingState, dispatch] = useReducer(editingReducer, {});
+// Low-frequency updates (connection state)
+const VoiceStateContext = createContext<{
+  status: VoiceStatus;
+  error: VoiceError | null;
+  isMuted: boolean;
+  isPlaying: boolean;
+  isPaused: boolean;
+} | null>(null);
+
+// Actions (no state, just methods)
+const VoiceActionsContext = createContext<{
+  connect: () => Promise<void>;
+  disconnect: () => void;
+  mute: () => void;
+  unmute: () => void;
+  sendUserInput: (text: string) => void;
+} | null>(null);
 ```
 
-### 4. AppSidebar Component (`app-sidebar.tsx`)
-#### Current Issues:
-- Re-renders on voice status changes
-- Unmemoized session handlers
-- Deep prop drilling
+### 2. Component Optimizations
 
-#### Optimizations:
+#### BottomControls.tsx
 ```typescript
-// 1. Extract voice-dependent logic
-const VoiceStatus = memo(({ status, onDisconnect }) => {
-  /* voice status logic */
-});
-
-// 2. Create session context
-const SessionContext = createContext({
-  sessions: [],
-  actions: { /* ... */ }
-});
-
-// 3. Memoize session handlers
-const sessionHandlers = useMemo(() => ({
-  onSelect: handleSelectSession,
-  onDelete: handleDeleteSession,
-  onRename: handleRenameSession
-}), [handleSelectSession, handleDeleteSession, handleRenameSession]);
-```
-
-### 5. Controls Component (`Controls.tsx`)
-#### Current Issues:
-- Frequent FFT updates causing re-renders
-- Unmemoized voice controls
-- Unnecessary parent re-renders
-
-#### Optimizations:
-```typescript
-// 1. Optimize FFT visualization
-const FFTVisualizer = memo(({ fft }) => {
-  /* FFT visualization with RAF */
-}, (prev, next) => {
-  // Custom comparison for FFT data
-  return areFFTArraysSimilar(prev.fft, next.fft);
-});
-
-// 2. Memoize voice controls
-const VoiceControls = memo(({ isMuted, onToggle }) => {
-  /* voice control UI */
+const BottomControls = React.memo(({ sessionId, onNewSession }: BottomControlsProps) => {
+  // Only subscribe to needed state
+  const { status } = useVoiceState();
+  const { connect, disconnect } = useVoiceActions();
+  
+  // ... rest of component
 });
 ```
 
-## New Components/Contexts to Create
-
-### 1. Voice Context
+#### Controls.tsx
 ```typescript
-const VoiceContext = createContext({
-  status: null,
-  messages: [],
-  isMuted: false,
-  // ... other voice state
+const Controls = React.memo(({ onEndCall }: ControlsProps) => {
+  // Split state subscriptions
+  const { isMuted } = useVoiceState();
+  const { mute, unmute } = useVoiceActions();
+  const { micFft } = useAudioVisualization();
+  
+  // ... rest of component
 });
 ```
 
-### 2. Session Context
+#### MicFFT.tsx
 ```typescript
-const SessionContext = createContext({
-  sessions: [],
-  currentSession: null,
-  actions: {
-    select: () => {},
-    create: () => {},
-    delete: () => {},
-    rename: () => {}
-  }
+// Convert to canvas-based rendering
+const MicFFT = React.memo(({ fft, className }: MicFFTProps) => {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    
+    // Render FFT data to canvas
+    renderFFT(ctx, fft);
+  }, [fft]);
+  
+  return <canvas ref={canvasRef} className={className} />;
 });
 ```
 
-### 3. Message Context
+### 3. Implementation Steps
+
+1. Create new context files:
+   - src/lib/hume-lib/contexts/AudioVisualizationContext.tsx
+   - src/lib/hume-lib/contexts/VoiceMessagesContext.tsx
+   - src/lib/hume-lib/contexts/VoiceStateContext.tsx
+   - src/lib/hume-lib/contexts/VoiceActionsContext.tsx
+
+2. Refactor VoiceProvider to use new contexts:
 ```typescript
-const MessageContext = createContext({
-  messages: [],
-  storedMessages: [],
-  actions: {
-    add: () => {},
-    clear: () => {},
-    save: () => {}
-  }
-});
+export const VoiceProvider = ({ children }: PropsWithChildren) => {
+  // ... existing state management ...
+  
+  return (
+    <VoiceStateContext.Provider value={stateValue}>
+      <VoiceActionsContext.Provider value={actionsValue}>
+        <VoiceMessagesContext.Provider value={messagesValue}>
+          <AudioVisualizationContext.Provider value={visualizationValue}>
+            {children}
+          </AudioVisualizationContext.Provider>
+        </VoiceMessagesContext.Provider>
+      </VoiceActionsContext.Provider>
+    </VoiceStateContext.Provider>
+  );
+};
 ```
 
-## Implementation Strategy
+3. Add memoization to all components using voice contexts
 
-### Phase 1: Context Setup
-1. Create Voice, Session, and Message contexts
-2. Move state management to contexts
-3. Update components to use context instead of props
+4. Convert MicFFT to canvas-based rendering
 
-### Phase 2: Component Optimization
-1. Implement memoization for all components
-2. Add proper dependency arrays to hooks
-3. Extract and optimize FFT visualization
+### 4. Performance Monitoring
 
-### Phase 3: Performance Monitoring
-1. Add React profiler measurements
-2. Monitor re-render frequency
-3. Verify optimization impact
+1. Add render logging in development:
+```typescript
+if (process.env.NODE_ENV === 'development') {
+  console.log(`[${componentName}] rendering`, {
+    props,
+    state
+  });
+}
+```
 
-### Phase 4: Additional Optimizations
-1. Implement debouncing/throttling where needed
-2. Add virtualization for long lists
-3. Optimize animations and transitions
+2. Use React DevTools Profiler to:
+   - Measure render counts
+   - Identify unnecessary re-renders
+   - Verify context splitting effectiveness
 
-## Success Metrics
-- Reduced number of re-renders during voice calls
-- Smooth FFT visualization without impacting other components
-- Improved overall application responsiveness
+3. Monitor frame rate during voice calls
+
+### 5. Additional Optimizations
+
+1. Consider using Web Workers for FFT processing
+2. Implement request animation frame throttling for FFT updates
+3. Add virtualization for message lists
+4. Use transition API for non-urgent state updates

@@ -48,6 +48,11 @@ export const SessionProvider: React.FC<{ children: ReactNode }> = ({
   const [error, setError] = useState<string | null>(null);
   const navigate = useNavigate();
 
+  // Stable reference for navigation
+  const navigateToSession = useCallback((sessionId: string) => {
+    navigate(`/session/${sessionId}`);
+  }, [navigate]);
+
   // Load sessions (using useCallback for stability)
   const loadSessions = useCallback(async () => {
     if (user?.id) {
@@ -60,7 +65,7 @@ export const SessionProvider: React.FC<{ children: ReactNode }> = ({
         // Set active session if none is set and there are sessions
         if (formattedSessions.length > 0 && !currentSessionId) {
           setCurrentSessionId(formattedSessions[0].id);
-          navigate(`/session/${formattedSessions[0].id}`);
+          navigateToSession(formattedSessions[0].id);
         }
       } catch (err: any) {
         setError(err.message || 'Failed to load sessions');
@@ -87,7 +92,7 @@ export const SessionProvider: React.FC<{ children: ReactNode }> = ({
       // Update the sessions state *optimistically* (before navigation)
       setSessions((prevSessions) => [formattedSession, ...prevSessions]);
       setCurrentSessionId(newSession.id);
-      navigate(`/session/${newSession.id}`);
+      navigateToSession(newSession.id);
       return newSession.id;
     } catch (err: any) {
       setError(err.message || 'Failed to create session');
@@ -95,7 +100,7 @@ export const SessionProvider: React.FC<{ children: ReactNode }> = ({
     } finally {
       setLoading(false);
     }
-  }, [user?.id, navigate]);
+  }, [user?.id, navigateToSession]);
 
   // Select a session (just sets the active session ID)
   const selectSession = useCallback((sessionId: string) => {
@@ -143,16 +148,21 @@ export const SessionProvider: React.FC<{ children: ReactNode }> = ({
     }));
   }, [sessions, currentSessionId]);
 
+  // Memoize the handlers separately to maintain stable references
+  const memoizedHandlers = useMemo(() => ({
+    createSession,
+    selectSession,
+    deleteSession,
+    updateSession,
+  }), [createSession, selectSession, deleteSession, updateSession]);
+
   // Create the context value, memoizing it to prevent unnecessary re-renders
   const contextValue: SessionContextState = useMemo(() => ({
     sessions: memoizedSessions,
     currentSessionId,
     loading,
     error,
-    createSession,
-    selectSession,
-    deleteSession,
-    updateSession,
+    ...memoizedHandlers,
   }), [memoizedSessions, currentSessionId, loading, error, createSession, selectSession, deleteSession, updateSession]);
 
   return (

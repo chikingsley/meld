@@ -36,22 +36,34 @@ const NavSessionsComponent = ({
     onRenameSession(id, newTitle);
   }, [onRenameSession]);
 
-  console.log("NavSessions rendering"); // Add console log
+  // console.log("NavSessions rendering", {
+  //   sessionsLength: sessions.length,
+  //   sessionIds: sessions.map(s => s.id),
+  //   hasCallbacks: {
+  //     onSelectSession: !!onSelectSession,
+  //     onDeleteSession: !!onDeleteSession,
+  //     onRenameSession: !!onRenameSession
+  //   }
+  // });
 
     // No real need to useMemo here anymore, SessionItem is already memoized
+  const sessionList = React.useMemo(() => (
+    sessions.map((session) => (
+      <SessionItem
+        key={session.id}
+        session={session}
+        onSelect={handleSelect}
+        onDelete={handleDelete}
+        onRename={handleRename}
+      />
+    ))
+  ), [sessions, handleSelect, handleDelete, handleRename]);
+
   return (
     <SidebarGroup className="py-4">
       <SidebarGroupLabel className="px-4 mb-2">Chat Sessions</SidebarGroupLabel>
       <SidebarMenu className="space-y-1 px-2">
-        {sessions.map((session) => (
-          <SessionItem
-            key={session.id}
-            session={session}
-            onSelect={handleSelect}
-            onDelete={handleDelete}
-            onRename={handleRename}
-          />
-        ))}
+        {sessionList}
       </SidebarMenu>
     </SidebarGroup>
   );

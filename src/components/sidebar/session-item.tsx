@@ -90,7 +90,7 @@ export const SessionItem = memo(({
     if (e.key === 'Escape') handleCancel();
   }, [handleRename, handleCancel]);
 
-    console.log("SessionItem rendering:", session.id, session.title); // Add console log
+    // console.log("SessionItem rendering:", session.id, session.title); // Add console log
 
   return (
     <SidebarMenuItem className="group relative">

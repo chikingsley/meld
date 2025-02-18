@@ -12,6 +12,7 @@ export default function MicFFT({
 }) {
   return (
     <div className={"relative size-full"}>
+      {/* @ts-ignore AutoSizer uses direct DOM manipulation with javascript-detect-element-resize */}
       <AutoSizer>
         {({ width, height }) => (
           <motion.svg
