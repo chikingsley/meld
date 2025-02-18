@@ -20,6 +20,24 @@ services:
       interval: 5s
       timeout: 3s
       retries: 5
+    environment:
+      - DATABASE_URL=${DATABASE_URL}
+      - DIRECT_URL=${DIRECT_URL}
+
+  prisma-studio:
+    build: 
+      context: .
+      dockerfile: server/Dockerfile
+    command: ["bunx", "prisma", "studio", "--port", "5555", "--hostname", "0.0.0.0"]
+    ports:
+      - "5555:5555"
+    env_file:
+      - .env
+    networks:
+      - app-network
+    depends_on:
+      bun-server:
+        condition: service_healthy
 
   ngrok:
     image: ngrok/ngrok:latest
