@@ -1,5 +1,21 @@
 // server/bun-server.ts
-// import handleWebhook from './api/clerk/clerk-webhooks';
+
+// Declare global type
+declare global {
+  var requestCount: number;
+}
+
+import { PrismaClient } from "@prisma/client"
+import handleWebhook from './api/clerk/clerk-webhooks'
+// import handleGetMe from './api/user/routes'
+
+const prisma = new PrismaClient({
+  datasources: {
+    db: {
+      url: process.env.DATABASE_URL
+    }
+  }
+});
 
 const port = process.env.SERVER_PORT || 3001;
 
@@ -30,14 +46,22 @@ const server = Bun.serve({
 
     // Health check
     if (url.pathname === '/api/health') {
-      return Response.json({ status: 'ok' }, { headers: corsHeaders });
+      const dbHealth = await prisma.$queryRaw`SELECT 1`
+      .then(() => 'connected')
+      .catch(() => 'disconnected');
+    
+    return Response.json({ 
+      status: 'ok',
+      database: dbHealth 
+    }, { headers: corsHeaders });
     }
 
     // Clerk webhook
     if (url.pathname === '/api/webhooks' && req.method === 'POST') {
-      console.log('hahahahahh');
-      // return handleWebhook(req);
-      // return Response.json({ status: 'ok' }, { headers: corsHeaders });
+      const requestCount = (global.requestCount = (global.requestCount || 0) + 1);
+      console.log(`Webhook request received: #${requestCount}`);
+      return handleWebhook(req);
+      // return Response.json({ success: true }, { headers: corsHeaders });
     }
 
     // Chat completions
@@ -45,9 +69,9 @@ const server = Bun.serve({
       return Response.json({ success: true }, { headers: corsHeaders });
     }
 
-    // Test endpoint
-    if (url.pathname === '/api/test' && req.method === 'GET') {
-      return Response.json({ message: 'Hot reload is working!' }, { headers: corsHeaders });
+    // User endpoints
+    if (url.pathname === '/api/me' && req.method === 'GET') {
+      // return handleGetMe(req);
     }
 
     return new Response('Not Found', { status: 404, headers: corsHeaders });

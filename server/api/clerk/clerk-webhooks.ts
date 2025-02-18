@@ -1,7 +1,8 @@
+// server/api/clerk/clerk-webhooks.ts
 import { Webhook } from 'svix';
 import { createBasicHumeConfig, deleteHumeConfig } from './hume-auth';
 import { createClerkClient } from '@clerk/backend';
-import { userOps } from '@/lib/db';
+import { userHandlers } from '../database/user-handlers';
 
 const clerkClient = createClerkClient({ 
   secretKey: process.env.CLERK_SECRET_KEY 
@@ -43,96 +44,77 @@ setInterval(() => {
   }
 }, 60 * 60 * 1000);
 
-// Add debug logging helper
-const debug = (...args: any[]) => {
-  if (process.env.VITE_DEBUG_WEBHOOKS === 'true') {
-    console.log('[Webhook]', ...args);
-  }
-};
-
 async function handleUserCreated(event: WebhookEvent) {
-  debug('Processing user.created event:', { 
-    userId: event.data.id,
-    email: event.data.email_addresses[0]?.email_address 
-  });
-
+ 
   const { id, email_addresses, first_name, last_name } = event.data;
   const email = email_addresses[0]?.email_address;
-  console.log('email', email);
-  if (!email) {
-    debug('No email found for user:', id);
-    console.error('No email found for user:', id);
-    return;
-  }
 
   try {
-    debug('Creating Hume config for user:', email);
     // Create basic Hume config
     const config = await createBasicHumeConfig(email);
-    console.log('config', config);
-    debug('Created Hume config:', { 
-      id: config.id, 
-      name: config.name,
-      version: config.version 
-    });
     
-    debug('Updating Clerk user metadata');
     // Update user metadata with config ID
     await clerkClient.users.updateUser(id, {
       publicMetadata: {
         humeConfigId: config.id
       }
     });
+    console.log(`Updating user metadata: ${config.id}`);
 
-    debug('Upserting user in local DB');
-    // Create/update user in local DB
-    await userOps.upsertUser({
+    // Create/update user in DB with their info and Hume config
+    await userHandlers.upsertUser({
       id,
       email,
-      first_name: first_name,
-      last_name: last_name
+      first_name,
+      last_name,
+      configId: config.id
     });
-    console.log('userOps', userOps);
-    debug('Updating Hume config in local DB');
-    // Update Hume config in local DB
-    await userOps.updateHumeConfig(id, config.id);
-    debug('User creation completed successfully');
 
   } catch (error) {
-    debug('Error in user creation:', error);
     console.error('Error in user creation:', error);
     throw error;
   }
 }
 
 async function handleUserUpdated(event: WebhookEvent) {
-  const { id, email_addresses, first_name, last_name } = event.data;
+  const { id, email_addresses, first_name, last_name, public_metadata } = event.data;
   const email = email_addresses[0]?.email_address;
+  const configId = public_metadata?.humeConfigId;
 
   try {
-    await userOps.upsertUser({
+    // Update user in DB with their info
+    await userHandlers.upsertUser({
       id,
       email,
-      first_name: first_name,
-      last_name: last_name
+      first_name,
+      last_name,
+      configId
     });
   } catch (error) {
-    console.error('Error in user update:', error);
+    console.error('Error updating user:', error);
     throw error;
   }
 }
 
 async function handleUserDeleted(event: WebhookEvent) {
-  const { id, public_metadata } = event.data;
-  const configId = public_metadata?.humeConfigId;
-
+  const { id } = event.data;
+  
   try {
-    // Delete user from local database
-    await userOps.deleteUser(id);
+    // Get user from our database first to get the configId
+    console.log('Fetching user from database...');
+    const user = await userHandlers.getUser(id);
     
-    if (configId) {
-      await deleteHumeConfig(configId);
+    if (user?.configId) {
+      console.log('Deleting Hume config:', user.configId);
+      await deleteHumeConfig(user.configId);
+      console.log('Successfully deleted Hume config');
+    } else {
+      console.log('No Hume config found for user');
     }
+
+    console.log('Deleting user from database:', id);
+    await userHandlers.deleteUser(id);
+    console.log('Successfully deleted user');
   } catch (error) {
     console.error('Error deleting user:', error);
     throw error;
