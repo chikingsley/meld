@@ -8,7 +8,7 @@ interface VoiceError {
 
 type VoiceStatus =
   | {
-      value: 'disconnected' | 'connecting' | 'connected';
+      value: 'disconnected' | 'connecting' | 'connected' | 'disconnecting';
       reason?: undefined;
     }
   | {
