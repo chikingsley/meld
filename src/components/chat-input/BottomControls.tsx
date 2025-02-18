@@ -8,15 +8,20 @@ import { useIsMobile } from "@/hooks/use-mobile"
 import { ChatInputForm } from "@/components/chat-input/ChatInputForm"
 import Controls from "./Controls"
 import { cn } from "@/utils"
-import { useVoice } from "@/lib/hume-lib/VoiceProvider";
+import { useVoiceState } from "@/lib/hume-lib/contexts/VoiceStateContext"
+import { useVoiceActions } from "@/lib/hume-lib/contexts/VoiceActionsContext"
+import { useVoice } from "@/lib/hume-lib/VoiceProvider"
 
 interface BottomControlsProps {
   sessionId?: string;
   onNewSession?: () => void;
 }
 
-export function BottomControls({ sessionId, onNewSession }: BottomControlsProps) {
-  const { status, connect, disconnect, sendSessionSettings, clearMessages } = useVoice()
+const BottomControls = React.memo(({ sessionId, onNewSession }: BottomControlsProps) => {
+  // Split state subscriptions for better performance
+  const { status } = useVoiceState();
+  const { connect, disconnect, sendSessionSettings } = useVoiceActions();
+  const { clearMessages } = useVoice();
   const [isTransitioning, setIsTransitioning] = React.useState(false)
   const isMobile = useIsMobile()
 
@@ -26,7 +31,7 @@ export function BottomControls({ sessionId, onNewSession }: BottomControlsProps)
     try {
       if (sessionId) {
         // Always set session ID before connecting
-        await sendSessionSettings({ customSessionId: sessionId })
+        await sendSessionSettings({ type: 'session_settings', customSessionId: sessionId })
         // Don't clear messages when starting call
         await connect()
       }
@@ -58,8 +63,8 @@ export function BottomControls({ sessionId, onNewSession }: BottomControlsProps)
     onNewSession?.()
   }
   
-  // Use isTransitioning to show optimistic UI updates
-  const showControls = status.value === "connected" || isTransitioning
+  // Show controls during connection process and connected state
+  const showControls = status.value === "connected" || status.value === "connecting" || isTransitioning
   
   return (
     <div className="fixed bottom-10 right-0 w-full flex items-center justify-center bg-gradient-to-t from-background via-background/90 to-background/0">
@@ -127,4 +132,6 @@ export function BottomControls({ sessionId, onNewSession }: BottomControlsProps)
       </div>
     </div>
   )
-} 
+});
+
+export default BottomControls;

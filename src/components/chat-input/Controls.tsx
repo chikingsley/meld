@@ -1,16 +1,22 @@
 // src/components/chat-input/Controls.tsx
-import { useVoice } from "@/lib/hume-lib/VoiceProvider";
+import { useVoiceState } from "@/lib/hume-lib/contexts/VoiceStateContext";
+import { useVoiceActions } from "@/lib/hume-lib/contexts/VoiceActionsContext";
+import { useAudioVisualization } from "@/lib/hume-lib/contexts/AudioVisualizationContext";
 import { Button } from "@/components/ui/button";
 import { Mic, MicOff, Phone } from "lucide-react";
 import { Toggle } from "@/components/ui/toggle";
 import MicFFT from "./MicFFT";
+import React from "react";
 
 interface ControlsProps {
   onEndCall: () => void;
 }
 
-export default function Controls({ onEndCall }: ControlsProps) {
-  const { isMuted, unmute, mute, micFft } = useVoice();
+const Controls = React.memo(({ onEndCall }: ControlsProps) => {
+  // Split state subscriptions for better performance
+  const { isMuted } = useVoiceState();
+  const { mute, unmute } = useVoiceActions();
+  const { micFft } = useAudioVisualization();
 
   return (
     <div className="p-4 bg-card text-card-foreground border border-border rounded-lg shadow-sm flex items-center gap-4">
@@ -42,4 +48,6 @@ export default function Controls({ onEndCall }: ControlsProps) {
       </Button>
     </div>
   );
-}
+});
+
+export default Controls;

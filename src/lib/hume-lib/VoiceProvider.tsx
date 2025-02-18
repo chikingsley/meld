@@ -11,6 +11,10 @@ import {
   useState,
 } from 'react';
 
+import { VoiceStateContext } from './contexts/VoiceStateContext';
+import { VoiceActionsContext } from './contexts/VoiceActionsContext';
+import { VoiceMessagesContext } from './contexts/VoiceMessagesContext';
+import { AudioVisualizationProvider } from './contexts/AudioVisualizationContext';
 import { ConnectionMessage } from './connection-message';
 import { noop } from './noop';
 import { useCallDuration } from './hooks/useCallDuration';
@@ -147,9 +151,6 @@ export const VoiceProvider: FC<VoiceProviderProps> = ({
   // error handling
   const [error, setError] = useState<VoiceError | null>(null);
   const isError = error !== null;
-  const isMicrophoneError = error?.type === 'mic_error';
-  const isSocketError = error?.type === 'socket_error';
-  const isAudioError = error?.type === 'audio_error';
 
   const onError = useRef(props.onError ?? noop);
   onError.current = props.onError ?? noop;
@@ -512,79 +513,96 @@ export const VoiceProvider: FC<VoiceProviderProps> = ({
     [clientSendToolMessage, updateError],
   );
 
-  const ctx = useMemo(
-    () =>
-      ({
-        connect,
-        disconnect,
-        fft: player.fft,
-        micFft: mic.fft,
-        isMuted: mic.isMuted,
-        isAudioMuted: player.isAudioMuted,
-        isPlaying: player.isPlaying,
-        messages: messageStore.messages,
-        lastVoiceMessage: messageStore.lastVoiceMessage,
-        lastUserMessage: messageStore.lastUserMessage,
-        clearMessages: messageStore.clearMessages,
-        mute: mic.mute,
-        muteAudio: player.muteAudio,
-        readyState: client.readyState,
-        sendUserInput,
-        sendAssistantInput,
-        sendSessionSettings,
-        pauseAssistant,
-        resumeAssistant,
-        sendToolMessage,
-        status,
-        unmute: mic.unmute,
-        unmuteAudio: player.unmuteAudio,
-        error,
-        isAudioError,
-        isError,
-        isMicrophoneError,
-        isSocketError,
-        callDurationTimestamp,
-        toolStatusStore: toolStatus.store,
-        chatMetadata: messageStore.chatMetadata,
-        playerQueueLength: player.queueLength,
-        isPaused,
-      }) satisfies VoiceContextType,
-    [
-      connect,
-      disconnect,
-      player.fft,
-      player.isAudioMuted,
-      player.isPlaying,
-      player.muteAudio,
-      player.unmuteAudio,
-      player.queueLength,
-      mic.fft,
-      mic.isMuted,
-      mic.mute,
-      mic.unmute,
-      messageStore.messages,
-      messageStore.lastVoiceMessage,
-      messageStore.lastUserMessage,
-      messageStore.clearMessages,
-      messageStore.chatMetadata,
-      client.readyState,
-      sendUserInput,
-      sendAssistantInput,
-      sendSessionSettings,
-      pauseAssistant,
-      resumeAssistant,
-      sendToolMessage,
+
+
+  const stateValue = useMemo(
+    () => ({
       status,
       error,
-      isAudioError,
-      isError,
-      isMicrophoneError,
-      isSocketError,
-      callDurationTimestamp,
-      toolStatus.store,
+      isMuted: mic.isMuted,
+      isPlaying: player.isPlaying,
       isPaused,
-    ],
+    }),
+    [status, error, mic.isMuted, player.isPlaying, isPaused]
   );
 
-  return <VoiceContext.Provider value={ctx}>{children}</VoiceContext.Provider>;
+  const actionsValue = useMemo(
+    () => ({
+      connect,
+      disconnect,
+      mute: mic.mute,
+      unmute: mic.unmute,
+      sendUserInput,
+      clearMessages: messageStore.clearMessages,
+      sendSessionSettings,
+    }),
+    [connect, disconnect, mic.mute, mic.unmute, sendUserInput, messageStore.clearMessages, sendSessionSettings]
+  );
+
+  const messagesValue = useMemo(
+    () => ({
+      messages: messageStore.messages,
+      lastVoiceMessage: messageStore.lastVoiceMessage,
+      lastUserMessage: messageStore.lastUserMessage,
+    }),
+    [messageStore.messages, messageStore.lastVoiceMessage, messageStore.lastUserMessage]
+  );
+
+  const contextValue = useMemo(
+    () => ({
+      ...stateValue,
+      ...actionsValue,
+      ...messagesValue,
+      readyState: client.readyState,
+      sendAssistantInput,
+      sendSessionSettings,
+      sendToolMessage,
+      pauseAssistant,
+      resumeAssistant,
+      muteAudio: player.muteAudio,
+      unmuteAudio: player.unmuteAudio,
+      isAudioMuted: player.isAudioMuted,
+      isAudioError: error?.type === 'audio_error',
+      isMicrophoneError: error?.type === 'mic_error',
+      isSocketError: error?.type === 'socket_error',
+      isError,
+      callDurationTimestamp,
+      toolStatusStore: toolStatus.store,
+      chatMetadata: messageStore.chatMetadata,
+      playerQueueLength: player.queueLength
+    }),
+    [
+      stateValue,
+      actionsValue,
+      messagesValue,
+      client.readyState,
+      sendAssistantInput,
+      sendSessionSettings,
+      sendToolMessage,
+      pauseAssistant,
+      resumeAssistant,
+      player.muteAudio,
+      player.unmuteAudio,
+      player.isAudioMuted,
+      error,
+      callDurationTimestamp,
+      toolStatus.store,
+      messageStore.chatMetadata,
+      player.queueLength
+    ]
+  );
+
+  return (
+    <VoiceContext.Provider value={contextValue}>
+      <VoiceStateContext.Provider value={stateValue}>
+        <VoiceActionsContext.Provider value={actionsValue}>
+          <VoiceMessagesContext.Provider value={messagesValue}>
+            <AudioVisualizationProvider fft={player.fft} micFft={mic.fft}>
+              {children}
+            </AudioVisualizationProvider>
+          </VoiceMessagesContext.Provider>
+        </VoiceActionsContext.Provider>
+      </VoiceStateContext.Provider>
+    </VoiceContext.Provider>
+  );
 };

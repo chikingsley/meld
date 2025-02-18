@@ -1,7 +1,7 @@
 // src/components/chat-window/Chat.tsx
 import { useVoice } from "@/lib/hume-lib/VoiceProvider";
 import Messages from "./Messages";
-import { BottomControls } from "../chat-input/BottomControls";
+import BottomControls from "../chat-input/BottomControls";
 import { ComponentRef, useEffect, useRef, useState } from "react";
 import { useParams } from "react-router-dom";
 import { sessionStore, StoredMessage } from "@/lib/session-store";
@@ -81,12 +81,13 @@ export default function ClientComponent({ sessionId, onNewSession }: ClientCompo
       );
 
       newMessages.forEach(msg => {
-        console.log('Message structure:', {
-          msg,
-          models: msg.models,
-          type: msg.type,
-          message: msg.message
-        });
+        // console.log('Message structure:', {
+        //   msg,
+        //   models: msg.models,
+        //   type: msg.type,
+        //   message: msg.message
+        // });
+
         if ('message' in msg) {
           const messageId = createMessageId(msg);
           // Only save if we haven't seen this message before
