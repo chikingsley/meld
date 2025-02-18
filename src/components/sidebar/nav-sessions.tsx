@@ -11,9 +11,9 @@ import { memo, useCallback } from "react";
 
 export interface NavSessionsProps {
   sessions: ChatSession[];
-  onSelectSession: (sessionId: string) => void;
-  onDeleteSession: (sessionId: string) => void;
-  onRenameSession: (sessionId: string, newTitle: string) => void;
+  onSelectSession: (sessionId: string) => Promise<void>;
+  onDeleteSession: (sessionId: string) => Promise<void>;
+  onRenameSession: (sessionId: string, newTitle: string) => Promise<void>;
 }
 
 const NavSessionsComponent = ({

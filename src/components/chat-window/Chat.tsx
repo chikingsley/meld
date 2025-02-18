@@ -91,9 +91,20 @@ export default function ClientComponent({ sessionId, onNewSession }: ClientCompo
           const messageId = createMessageId(msg);
           // Only save if we haven't seen this message before
           if (!existingIds.has(messageId)) {
-            const storedMessage = {
-              message: msg.message,
-              prosody: msg.models?.prosody?.scores,
+            // Convert EmotionScores to Record<string, number>
+            const prosodyScores = msg.models?.prosody?.scores
+              ? Object.entries(msg.models.prosody.scores).reduce((acc, [key, value]) => {
+                  acc[key] = value;
+                  return acc;
+                }, {} as Record<string, number>)
+              : undefined;
+
+            const storedMessage: StoredMessage = {
+              message: {
+                role: msg.message.role || 'user',
+                content: msg.message.content || ''
+              },
+              prosody: prosodyScores,
               timestamp: new Date().toISOString(),
             };
             sessionStore.addMessage(urlSessionId, storedMessage);

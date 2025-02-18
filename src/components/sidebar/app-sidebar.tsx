@@ -104,7 +104,7 @@ const AppSidebarComponent = ({ className, ...props }: React.ComponentProps<typeo
             sessions={sessions}
             onSelectSession={handleSelectSession}
             onDeleteSession={handleDeleteSession}
-            onRename={handleRenameSession}
+            onRenameSession={handleRenameSession}
           />
         )}
       </SidebarContent>

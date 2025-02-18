@@ -1,5 +1,5 @@
 import { type Hume } from 'hume';
-import React, {
+import {
   createContext,
   FC,
   PropsWithChildren,
