@@ -7,8 +7,9 @@ import React, {
     useMemo,
   } from 'react';
   import { ChatSession } from '@/components/sidebar/nav-sessions';
-  import { useSessions } from '@/hooks/use-sessions'; // Import useSessions
+  import { useSessions } from '@/hooks/use-sessions';
   import { useNavigate } from 'react-router-dom';
+  import { useVoice } from '@/lib/hume-lib/VoiceProvider';
   
   interface SessionContextState {
     sessions: ChatSession[];
@@ -17,16 +18,20 @@ import React, {
     selectSession: (sessionId: string) => void;
     deleteSession: (sessionId: string) => void;
     updateSession: (sessionId: string, updates: Partial<ChatSession>) => void;
+    isVoiceConnected: boolean;
+    voiceError: string | null;
   }
   
   // Create the context with a default state. Provide NO-OP functions.
   const SessionContext = createContext<SessionContextState>({
     sessions: [],
     currentSessionId: null,
-    createSession: () => null, // No-op function
-    selectSession: () => {}, // No-op function
-    deleteSession: () => {}, // No-op function
-    updateSession: () => {}, // No-op function
+    createSession: () => null,
+    selectSession: () => {},
+    deleteSession: () => {},
+    updateSession: () => {},
+    isVoiceConnected: false,
+    voiceError: null,
   });
   
   // Provider component
@@ -40,39 +45,40 @@ import React, {
       selectSession,
       deleteSession,
       updateSession,
-    } = useSessions(); // Use the useSessions hook
-      const navigate = useNavigate();
-  
+    } = useSessions();
+    const navigate = useNavigate();
+    const { status, error } = useVoice();
   
     // Wrap all actions with useCallback for memoization.
     const createSessionWrapper = useCallback(() => {
       const newSessionId = createSession();
       if (newSessionId) {
-          navigate(`/session/${newSessionId}`); // Navigate on session creation
-        }
-      return newSessionId
+        console.log(`[SessionContext] Created new session: ${newSessionId}`);
+        navigate(`/session/${newSessionId}`);
+      }
+      return newSessionId;
     }, [createSession, navigate]);
   
     const selectSessionWrapper = useCallback(
       (sessionId: string) => {
+        console.log(`[SessionContext] Selecting session: ${sessionId}`);
         selectSession(sessionId);
-        navigate(`/session/${sessionId}`); // Navigate on session selection
-  
+        navigate(`/session/${sessionId}`);
       },
       [selectSession, navigate],
     );
   
     const deleteSessionWrapper = useCallback(
       (sessionId: string) => {
+        console.log(`[SessionContext] Deleting session: ${sessionId}`);
         deleteSession(sessionId);
-        // No need to navigate here; useSessions handles creating a new session
-        // if the deleted session was active.
       },
       [deleteSession],
     );
   
     const updateSessionWrapper = useCallback(
       (sessionId: string, updates: Partial<ChatSession>) => {
+        console.log(`[SessionContext] Updating session: ${sessionId}`, updates);
         updateSession(sessionId, updates);
       },
       [updateSession],
@@ -81,12 +87,14 @@ import React, {
     // Use useMemo to prevent unnecessary re-renders of the context value.
     const value: SessionContextState = useMemo(
       () => ({
-        sessions: sessions,
-        currentSessionId: activeSessionId, // Renamed for clarity
+        sessions,
+        currentSessionId: activeSessionId,
         createSession: createSessionWrapper,
         selectSession: selectSessionWrapper,
         deleteSession: deleteSessionWrapper,
         updateSession: updateSessionWrapper,
+        isVoiceConnected: status.value === 'connected',
+        voiceError: error?.message || null,
       }),
       [
         sessions,
@@ -95,6 +103,8 @@ import React, {
         selectSessionWrapper,
         deleteSessionWrapper,
         updateSessionWrapper,
+        status.value,
+        error?.message,
       ],
     );
   

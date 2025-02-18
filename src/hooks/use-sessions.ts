@@ -14,7 +14,7 @@ export interface ChatSession {
 
 export function useSessions() {
   const { user } = useUser();
-  const { messages } = useVoice();
+  const { messages, status } = useVoice();
   const [sessions, setSessions] = useState<ChatSession[]>([]);
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
 
@@ -44,8 +44,11 @@ export function useSessions() {
     }
   }, [messages, activeSessionId, user?.id]);
 
+  // Create session only when voice connection is established
   const createSession = () => {
     if (!user?.id) return null;
+    
+    console.log('[useSessions] Creating new session');
     const newSession = sessionStore.addSession(user.id);
     const formattedSession = formatSession(newSession);
     setSessions(prev => [formattedSession, ...prev]);
@@ -54,10 +57,12 @@ export function useSessions() {
   };
 
   const selectSession = (sessionId: string) => {
+    console.log(`[useSessions] Selecting session: ${sessionId}`);
     setActiveSessionId(sessionId);
   };
 
   const deleteSession = (sessionId: string) => {
+    console.log(`[useSessions] Deleting session: ${sessionId}`);
     sessionStore.deleteSession(sessionId);
     if (user?.id) {
       const storedSessions = sessionStore.getUserSessions(user.id);
@@ -69,6 +74,7 @@ export function useSessions() {
   };
 
   const updateSession = (sessionId: string, updates: Partial<StoredSession>) => {
+    console.log(`[useSessions] Updating session: ${sessionId}`, updates);
     sessionStore.updateSession(sessionId, updates);
     // Refresh sessions list
     if (user?.id) {
@@ -100,13 +106,13 @@ function formatSession(session: StoredSession): ChatSession {
 }
 
 function getSessionTitle(messages: any[]): string {
-  // Get first user message or default to "New Chat"
-  const firstUserMessage = messages.find(m => 
-    'message' in m && m.message.role === 'user'
+  // Find first user message
+  const firstUserMessage = messages.find(
+    msg => 'message' in msg && msg.message.role === 'user'
   );
   if (firstUserMessage && 'message' in firstUserMessage) {
     const content = firstUserMessage.message.content;
-    return content.length > 30 ? content.slice(0, 27) + '...' : content;
+    return content.length > 50 ? content.substring(0, 47) + '...' : content;
   }
   return 'New Chat';
 }

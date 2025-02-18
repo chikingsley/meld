@@ -215,12 +215,13 @@ export const VoiceProvider: FC<VoiceProviderProps> = ({
 
   const client = useVoiceClient({
     onAudioMessage: (message: AudioOutputMessage) => {
+      console.log('[VoiceProvider] Received audio message, adding to queue');
       player.addToQueue(message);
       onAudioReceived.current(message);
     },
     onMessage: useCallback(
       (message: JSONMessage) => {
-        // store message
+        console.log('[VoiceProvider] Received message:', message.type);
         messageStore.onMessage(message);
 
         if (
@@ -228,6 +229,7 @@ export const VoiceProvider: FC<VoiceProviderProps> = ({
           message.type === 'user_message'
         ) {
           if (player.isPlaying) {
+            console.log('[VoiceProvider] User interrupted, clearing queue');
             onInterruption.current(message);
           }
           player.clearQueue();
@@ -238,6 +240,7 @@ export const VoiceProvider: FC<VoiceProviderProps> = ({
           message.type === 'tool_response' ||
           message.type === 'tool_error'
         ) {
+          console.log('[VoiceProvider] Processing tool message:', message.type);
           toolStatus.addToStore(message);
         }
       },
@@ -245,6 +248,7 @@ export const VoiceProvider: FC<VoiceProviderProps> = ({
     ),
     onError: onClientError,
     onOpen: useCallback(() => {
+      console.log('[VoiceProvider] WebSocket connection opened');
       startTimer();
       messageStore.createConnectMessage();
       props.onOpen?.();
@@ -253,6 +257,7 @@ export const VoiceProvider: FC<VoiceProviderProps> = ({
       NonNullable<Hume.empathicVoice.chat.ChatSocket.EventHandlers['close']>
     >(
       (event) => {
+        console.log('[VoiceProvider] WebSocket connection closed');
         stopTimer();
         messageStore.createDisconnectMessage(event);
         onClose.current?.(event);
@@ -317,11 +322,13 @@ export const VoiceProvider: FC<VoiceProviderProps> = ({
   }, [sendResumeAssistantMessage, updateError]);
 
   const connect = useCallback(async () => {
+    console.log('[VoiceProvider] Initiating connection...');
     updateError(null);
     setStatus({ value: 'connecting' });
     const permission = await getStream();
 
     if (permission === 'denied') {
+      console.error('[VoiceProvider] Microphone permission denied');
       const error: VoiceError = {
         type: 'mic_error',
         message: 'Microphone permission denied',
@@ -329,17 +336,21 @@ export const VoiceProvider: FC<VoiceProviderProps> = ({
       updateError(error);
       return Promise.reject(error);
     }
+    console.log('[VoiceProvider] Microphone permission granted');
 
     try {
+      console.log('[VoiceProvider] Attempting to connect to voice service...');
       await client.connect({
         ...config,
         verboseTranscription: true,
       });
+      console.log('[VoiceProvider] Successfully connected to voice service');
     } catch (e) {
       const error: VoiceError = {
         type: 'socket_error',
         message: 'We could not connect to the voice. Please try again.',
       };
+      console.error('[VoiceProvider] Connection failed:', e);
       updateError(error);
       return Promise.reject(error);
     }
@@ -354,9 +365,11 @@ export const VoiceProvider: FC<VoiceProviderProps> = ({
         micPromise.status === 'fulfilled' &&
         playerPromise.status === 'fulfilled'
       ) {
+        console.log('[VoiceProvider] Audio system initialized successfully');
         setStatus({ value: 'connected' });
       }
     } catch (e) {
+      console.error('[VoiceProvider] Audio initialization failed:', e);
       const error: VoiceError = {
         type: 'audio_error',
         message:
@@ -369,16 +382,22 @@ export const VoiceProvider: FC<VoiceProviderProps> = ({
   }, [client, config, getStream, mic, player, updateError]);
 
   const disconnectFromVoice = useCallback(() => {
+    console.log('[VoiceProvider] Initiating voice disconnect...');
     if (client.readyState !== VoiceReadyState.CLOSED) {
       client.disconnect();
+      console.log('[VoiceProvider] Client disconnected');
     }
     player.stopAll();
+    console.log('[VoiceProvider] Audio player stopped');
     mic.stop();
+    console.log('[VoiceProvider] Microphone stopped');
     if (clearMessagesOnDisconnect) {
       messageStore.clearMessages();
+      console.log('[VoiceProvider] Message store cleared');
     }
     toolStatus.clearStore();
     setIsPaused(false);
+    console.log('[VoiceProvider] Voice system fully disconnected');
   }, [
     client,
     player,
@@ -429,10 +448,12 @@ export const VoiceProvider: FC<VoiceProviderProps> = ({
 
   const sendUserInput = useCallback(
     (text: string) => {
+      console.log('[VoiceProvider] Sending user input:', text);
       try {
         clientSendUserInput(text);
       } catch (e) {
         const message = e instanceof Error ? e.message : 'Unknown error';
+        console.error('[VoiceProvider] Error sending user input:', message);
         updateError({ type: 'socket_error', message });
       }
     },
@@ -441,10 +462,12 @@ export const VoiceProvider: FC<VoiceProviderProps> = ({
 
   const sendAssistantInput = useCallback(
     (text: string) => {
+      console.log('[VoiceProvider] Sending assistant input:', text);
       try {
         clientSendAssistantInput(text);
       } catch (e) {
         const message = e instanceof Error ? e.message : 'Unknown error';
+        console.error('[VoiceProvider] Error sending assistant input:', message);
         updateError({ type: 'socket_error', message });
       }
     },

@@ -6,13 +6,12 @@ import { NavSessions } from "@/components/sidebar/nav-sessions"
 import { NavUser } from "@/components/sidebar/nav-user"
 import { Sidebar, SidebarContent, SidebarFooter, SidebarHeader, SidebarMenu, SidebarMenuButton, SidebarMenuItem } from "@/components/ui/sidebar"
 import { Button } from "../ui/button"
-import { useSessions } from "@/hooks/use-sessions"
-import { sessionStore } from "@/lib/session-store"
 import { useVoice } from "@/lib/hume-lib/VoiceProvider"
 import { useNavigate } from "react-router-dom"
+import { useSessionContext } from "@/contexts/SessionContext"
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
-  const { sessions, createSession, selectSession, deleteSession, updateSession } = useSessions();
+  const { sessions, createSession, selectSession, deleteSession, updateSession } = useSessionContext();
   const { status, disconnect, clearMessages } = useVoice();
   const navigate = useNavigate();
 
