@@ -53,8 +53,6 @@ const BottomControls = React.memo(({ sessionId, onNewSession }: BottomControlsPr
     }
   }
 
-
-
   const handleNewChat = async () => {
     if (status.value === 'connected') {
       await handleEndCall()

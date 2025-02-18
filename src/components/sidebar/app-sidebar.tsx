@@ -6,83 +6,21 @@ import { NavSessions } from "@/components/sidebar/nav-sessions"
 import { NavUser } from "@/components/sidebar/nav-user"
 import { Sidebar, SidebarContent, SidebarFooter, SidebarHeader, SidebarMenu, SidebarMenuButton, SidebarMenuItem } from "@/components/ui/sidebar"
 import { Button } from "../ui/button"
-import { useVoice } from "@/lib/hume-lib/VoiceProvider"
 import { useNavigate } from "react-router-dom"
 import { useSessionContext } from "@/contexts/SessionContext"
+import { VoiceCleanupWrapper, useVoiceCleanupHandlers } from "./voice-cleanup"
 
-const AppSidebarComponent = ({ className, ...props }: React.ComponentProps<typeof Sidebar>) => {
-  const { sessions, currentSessionId, createSession, selectSession, deleteSession, updateSession, loading, error } = useSessionContext();
-  const { status, disconnect, clearMessages } = useVoice();
+const SidebarInner = ({ className, ...props }: React.ComponentProps<typeof Sidebar>) => {
+  const { sessions, createSession, selectSession, deleteSession, updateSession, loading, error } = useSessionContext();
   const navigate = useNavigate();
+  const voiceHandlers = useVoiceCleanupHandlers();
 
-  // console.log("AppSidebar rendering", {
-  //   sessionsLength: sessions.length,
-  //   statusValue: status.value,
-  //   loading,
-  //   error
-  // });
-
-  // Remove unused handler declarations
-  const sessionHandlers = React.useMemo(() => ({
-    handleSelectSession: async (id: string) => {
-      if (status.value === 'connected') {
-        await disconnect();
-      }
-      clearMessages();
-      await selectSession(id);
-      navigate(`/session/${id}`);
-    },
-    handleDeleteSession: async (id: string) => {
-      if (id === currentSessionId && status.value === 'connected') {
-        await disconnect();
-      }
-      await deleteSession(id);
-    },
+  // Base handlers for operations that don't need voice cleanup
+  const baseHandlers = React.useMemo(() => ({
     handleRenameSession: async (id: string, newTitle: string) => {
       await updateSession(id, { title: newTitle });
     }
-  }), [status.value, disconnect, clearMessages, selectSession, navigate, currentSessionId, deleteSession, updateSession]);
-
-  const handleNewChat = React.useCallback(async () => {
-    // End current call if any
-    if (status.value === 'connected') {
-      await disconnect();
-    }
-    // Clear current messages
-    clearMessages();
-    // Create new session and navigate (createSession now handles navigation)
-    await createSession();
-  }, [createSession, status.value, disconnect, clearMessages]);
-
-  const handleSelectSession = React.useCallback(async (sessionId: string) => {
-    // If we're in a call, end it before switching sessions
-    if (status.value === 'connected') {
-      await disconnect();
-    }
-    clearMessages();
-    selectSession(sessionId);
-    navigate(`/session/${sessionId}`);
-  }, [selectSession, navigate, status.value, disconnect, clearMessages]);
-
-  const handleDeleteSession = React.useCallback(async (sessionId: string) => {
-    try {
-      await deleteSession(sessionId);
-      // If we deleted the active session, create a new one
-      if (sessions.find(s => s.id === sessionId)?.isActive) {
-        await handleNewChat();
-      }
-    } catch (err) {
-      console.error('Failed to delete session:', err);
-    }
-  }, [sessions, handleNewChat, deleteSession]);
-
-  const handleRenameSession = React.useCallback(async (sessionId: string, newTitle: string) => {
-    try {
-      await updateSession(sessionId, { title: newTitle });
-    } catch (err) {
-      console.error('Failed to rename session:', err);
-    }
-  }, [updateSession]);
+  }), [updateSession]);
 
   return (
     <Sidebar variant="inset" className={className} {...props}>
@@ -106,7 +44,7 @@ const AppSidebarComponent = ({ className, ...props }: React.ComponentProps<typeo
               <div className="my-2 border-t" />
               <Button 
                 variant="default" 
-                onClick={handleNewChat} 
+                onClick={voiceHandlers.handleCreateSession} 
                 className="w-full flex items-center gap-1.5 rounded-lg"
                 disabled={loading}
               >
@@ -129,9 +67,9 @@ const AppSidebarComponent = ({ className, ...props }: React.ComponentProps<typeo
         ) : (
           <NavSessions 
             sessions={sessions}
-            onSelectSession={sessionHandlers.handleSelectSession}
-            onDeleteSession={sessionHandlers.handleDeleteSession}
-            onRenameSession={sessionHandlers.handleRenameSession}
+            onSelectSession={voiceHandlers.handleSelectSession}
+            onDeleteSession={voiceHandlers.handleDeleteSession}
+            onRenameSession={baseHandlers.handleRenameSession}
           />
         )}
       </SidebarContent>
@@ -158,8 +96,31 @@ const AppSidebarComponent = ({ className, ...props }: React.ComponentProps<typeo
         </SignedOut>
       </SidebarFooter>
     </Sidebar>
-  )
-}
+  );
+
+};
+
+const AppSidebarComponent = (props: React.ComponentProps<typeof Sidebar>) => {
+  const { createSession, selectSession, deleteSession } = useSessionContext();
+  const navigate = useNavigate();
+
+  return (
+    <VoiceCleanupWrapper
+      onCreateSession={async () => {
+        await createSession();
+      }}
+      onSelectSession={async (id: string) => {
+        await selectSession(id);
+        navigate(`/session/${id}`);
+      }}
+      onDeleteSession={async (id: string) => {
+        await deleteSession(id);
+      }}
+    >
+      <SidebarInner {...props} />
+    </VoiceCleanupWrapper>
+  );
+};
 
 // Memoize the entire component
 export const AppSidebar = React.memo(AppSidebarComponent);
