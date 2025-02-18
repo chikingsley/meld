@@ -54,7 +54,7 @@ export default function Session() {
 
   return (
     <div className="flex-1 flex flex-col h-full bg-background">
-      <ClientComponent />
+      <ClientComponent sessionId={activeSessionId} onNewSession={handleNewSession} />
     </div>
   );
 }

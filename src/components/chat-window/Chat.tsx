@@ -81,14 +81,18 @@ export default function ClientComponent({ sessionId, onNewSession }: ClientCompo
       );
 
       newMessages.forEach(msg => {
+        console.log('Message structure:', {
+          msg,
+          models: msg.models,
+          type: msg.type,
+          message: msg.message
+        });
         if ('message' in msg) {
           const messageId = createMessageId(msg);
           // Only save if we haven't seen this message before
           if (!existingIds.has(messageId)) {
             const storedMessage = {
               message: msg.message,
-              expressions: msg.models?.expressions?.scores,
-              labels: msg.models?.labels?.scores,
               prosody: msg.models?.prosody?.scores,
               timestamp: new Date().toISOString(),
             };
@@ -124,7 +128,7 @@ export default function ClientComponent({ sessionId, onNewSession }: ClientCompo
     <div className={"relative grow flex flex-col mx-auto w-full h-full overflow-hidden"}>
         <Messages ref={ref} messages={displayMessages} />
         <BottomControls 
-          sessionId={urlSessionId}
+          sessionId={sessionId}
           onNewSession={onNewSession}
         />
     </div>

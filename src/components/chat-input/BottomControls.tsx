@@ -21,6 +21,7 @@ export function BottomControls({ sessionId, onNewSession }: BottomControlsProps)
   const isMobile = useIsMobile()
 
   const handleStartCall = async () => {
+    console.log('Starting call with sessionId:', sessionId);
     setIsTransitioning(true)
     try {
       if (sessionId) {
