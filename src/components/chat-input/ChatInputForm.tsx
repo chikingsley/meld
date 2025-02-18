@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { MagnetizeButton } from "@/components/chat-input/magnetize-button";
+import { MagnetizeButton } from "@/components/chat-input/controls/magnetize-button";
 import { ArrowRight, Mic, Paperclip } from "lucide-react";
 import { cn } from "@/utils";
 
