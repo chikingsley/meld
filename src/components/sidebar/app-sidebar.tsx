@@ -8,13 +8,13 @@ import { Sidebar, SidebarContent, SidebarFooter, SidebarHeader, SidebarMenu, Sid
 import { Button } from "../ui/button"
 import { useNavigate } from "react-router-dom"
 import { useSessionContext } from "@/contexts/SessionContext"
-import { VoiceCleanupWrapper, useVoiceCleanupHandlers } from "./voice-cleanup"
+import { SessionHandlerWrapper, useSessionHandlers } from "@/components/sidebar/session-handler"
 
 const SidebarInner = ({ className, ...props }: React.ComponentProps<typeof Sidebar>) => {
   const { sessions, updateSession, loading, error } = useSessionContext();
-  const voiceHandlers = useVoiceCleanupHandlers();
+  const sessionHandlers = useSessionHandlers();
 
-  // Base handlers for operations that don't need voice cleanup
+  // Base handlers for operations that don't need voice disconnect
   const baseHandlers = React.useMemo(() => ({
     handleRenameSession: async (id: string, newTitle: string) => {
       await updateSession(id, { title: newTitle });
@@ -39,11 +39,10 @@ const SidebarInner = ({ className, ...props }: React.ComponentProps<typeof Sideb
             </SidebarMenuButton>
           </SidebarMenuItem>
           <SidebarMenuItem>
-            <div className="px-2">
-              <div className="my-2 border-t" />
+            <div className="mt-2 px-2">
               <Button 
                 variant="default" 
-                onClick={voiceHandlers.handleCreateSession} 
+                onClick={sessionHandlers.handleCreateSession} 
                 className="w-full flex items-center gap-1.5 rounded-lg"
                 disabled={loading}
               >
@@ -53,7 +52,6 @@ const SidebarInner = ({ className, ...props }: React.ComponentProps<typeof Sideb
               {error && (
                 <p className="text-xs text-destructive mt-2">{error}</p>
               )}
-              <div className="my-2 border-t" />
             </div>
           </SidebarMenuItem>
         </SidebarMenu>
@@ -66,8 +64,8 @@ const SidebarInner = ({ className, ...props }: React.ComponentProps<typeof Sideb
         ) : (
           <NavSessions 
             sessions={sessions}
-            onSelectSession={voiceHandlers.handleSelectSession}
-            onDeleteSession={voiceHandlers.handleDeleteSession}
+            onSelectSession={sessionHandlers.handleSelectSession}
+            onDeleteSession={sessionHandlers.handleDeleteSession}
             onRenameSession={baseHandlers.handleRenameSession}
           />
         )}
@@ -96,7 +94,6 @@ const SidebarInner = ({ className, ...props }: React.ComponentProps<typeof Sideb
       </SidebarFooter>
     </Sidebar>
   );
-
 };
 
 const AppSidebarComponent = (props: React.ComponentProps<typeof Sidebar>) => {
@@ -104,7 +101,7 @@ const AppSidebarComponent = (props: React.ComponentProps<typeof Sidebar>) => {
   const navigate = useNavigate();
 
   return (
-    <VoiceCleanupWrapper
+    <SessionHandlerWrapper
       onCreateSession={async () => {
         await createSession();
       }}
@@ -117,7 +114,7 @@ const AppSidebarComponent = (props: React.ComponentProps<typeof Sidebar>) => {
       }}
     >
       <SidebarInner {...props} />
-    </VoiceCleanupWrapper>
+    </SessionHandlerWrapper>
   );
 };
 

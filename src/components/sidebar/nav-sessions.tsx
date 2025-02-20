@@ -3,7 +3,6 @@
 
 import {
   SidebarGroup,
-  SidebarGroupLabel,
   SidebarMenu,
 } from "@/components/ui/sidebar";
 import { SessionItem, type ChatSession } from "./session-item"; // Import SessionItem
@@ -36,17 +35,7 @@ const NavSessionsComponent = ({
     onRenameSession(id, newTitle);
   }, [onRenameSession]);
 
-  // console.log("NavSessions rendering", {
-  //   sessionsLength: sessions.length,
-  //   sessionIds: sessions.map(s => s.id),
-  //   hasCallbacks: {
-  //     onSelectSession: !!onSelectSession,
-  //     onDeleteSession: !!onDeleteSession,
-  //     onRenameSession: !!onRenameSession
-  //   }
-  // });
-
-    // No real need to useMemo here anymore, SessionItem is already memoized
+  // No real need to useMemo here anymore, SessionItem is already memoized
   const sessionList = React.useMemo(() => (
     sessions.map((session) => (
       <SessionItem
@@ -60,9 +49,8 @@ const NavSessionsComponent = ({
   ), [sessions, handleSelect, handleDelete, handleRename]);
 
   return (
-    <SidebarGroup className="py-4">
-      <SidebarGroupLabel className="px-4 mb-2">Chat Sessions</SidebarGroupLabel>
-      <SidebarMenu className="space-y-1 px-2">
+    <SidebarGroup>
+      <SidebarMenu className="space-y-0.5 px-2">
         {sessionList}
       </SidebarMenu>
     </SidebarGroup>

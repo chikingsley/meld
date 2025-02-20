@@ -11,17 +11,25 @@ export function NavUser() {
   const { isMobile } = useSidebar();
   const { user } = useUser();
   const { signOut } = useAuth();
-  const [isDarkMode, setIsDarkMode] = useState(false);
+  const [isDarkMode, setIsDarkMode] = useState(() => {
+    // Check localStorage first, then system preference
+    const stored = localStorage.getItem('theme');
+    if (stored) return stored === 'dark';
+    return window.matchMedia('(prefers-color-scheme: dark)').matches;
+  });
 
   useLayoutEffect(() => {
     const el = document.documentElement;
-    setIsDarkMode(el.classList.contains("dark"));
-  }, []);
+    const isDark = el.classList.contains("dark");
+    if (isDark !== isDarkMode) {
+      el.classList.toggle("dark", isDarkMode);
+      localStorage.setItem('theme', isDarkMode ? 'dark' : 'light');
+    }
+  }, [isDarkMode]);
 
-  const toggleDark = () => {
-    const el = document.documentElement;
-    el.classList.toggle("dark");
-    setIsDarkMode((prev) => !prev);
+  const toggleDark = (e: React.MouseEvent) => {
+    e.preventDefault(); // Prevent dropdown from closing
+    setIsDarkMode(prev => !prev);
   };
 
   if (!user) return null;
@@ -78,7 +86,7 @@ export function NavUser() {
             </DropdownMenuGroup>
             <DropdownMenuSeparator />
             <DropdownMenuGroup>
-              <DropdownMenuItem onClick={toggleDark} className="justify-between">
+              <DropdownMenuItem onSelect={(e) => e.preventDefault()} onClick={toggleDark} className="justify-between">
                 <div className="flex items-center">
                   {isDarkMode ? <Moon className="mr-2 h-4 w-4" /> : <Sun className="mr-2 h-4 w-4" />}
                   Theme
