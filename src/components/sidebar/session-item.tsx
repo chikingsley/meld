@@ -91,7 +91,7 @@ export const SessionItem = memo(({
   }, [handleRename, handleCancel]);
 
   return (
-    <SidebarMenuItem className="group relative">
+    <SidebarMenuItem className="relative hover:bg-accent/50">
       {state.isEditing ? (
         <div className="flex items-center gap-1 px-4 py-6">
           <MessageSquare className="size-4 shrink-0" />
@@ -132,7 +132,7 @@ export const SessionItem = memo(({
             onClick={handleSelect}
             data-active={session.isActive}
             size="md"
-            className="w-full pr-20 transition-colors hover:bg-accent/50"
+            className="peer w-full pr-20 transition-colors hover:bg-accent/50"
           >
             <MessageSquare className="size-4 shrink-0" strokeWidth={1.5} />
             <div className="flex flex-1 flex-col min-w-0 gap-0.5">
@@ -142,7 +142,7 @@ export const SessionItem = memo(({
               </span>
             </div>
           </SidebarMenuButton>
-          <div className="absolute right-2 top-1/2 -translate-y-1/2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+          <div className="absolute right-2 top-1/2 -translate-y-1/2 flex gap-1 opacity-0 peer-hover:opacity-100 hover:opacity-100 transition-opacity">
             <Button
               variant="ghost"
               size="icon"
