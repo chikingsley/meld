@@ -2,8 +2,8 @@ import { renderHook } from '@testing-library/react';
 import React from 'react';
 import { describe, expect, it } from 'vitest';
 
-import { VoiceReadyState } from './hooks/useVoiceClient';
-import { useVoice, VoiceProvider } from './VoiceProvider';
+import { VoiceReadyState } from '../hooks/useVoiceClient';
+import { useVoice, VoiceProvider } from './hume-lib/VoiceProvider';
 
 describe('useVoice', () => {
   it('should in', async () => {

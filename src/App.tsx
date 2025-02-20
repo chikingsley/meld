@@ -1,5 +1,5 @@
 // src/App.tsx
-import { VoiceProvider } from '@/lib/hume-lib/VoiceProvider';
+import { VoiceProvider } from '@/lib/VoiceProvider';
 import { useEffect, useState } from 'react';
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 import { ClerkProvider } from '@clerk/react-router'
@@ -9,7 +9,7 @@ import Session from '@/pages/Session';
 import Settings from '@/pages/Settings';
 import { SessionProvider } from '@/contexts/SessionContext';
 import { useUserConfig } from '@/hooks/useUserConfig';
-import { useUserStore } from '@/lib/stores/useUserStore';
+import { useUserStore } from '@/stores/useUserStore';
 
 const clerkPubKey = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY;
 

@@ -32,8 +32,8 @@ const SidebarInner = ({ className, ...props }: React.ComponentProps<typeof Sideb
                   <Command className="size-4" />
                 </div>
                 <div className="grid flex-1 text-left text-sm leading-tight">
-                  <span className="truncate font-semibold">Hume Voice</span>
-                  <span className="truncate text-xs">AI Chat</span>
+                  <span className="truncate font-semibold">Rivena AI</span>
+                  <span className="truncate text-xs">Therapy Chat</span>
                 </div>
               </a>
             </SidebarMenuButton>

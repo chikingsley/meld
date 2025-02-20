@@ -1,5 +1,5 @@
 // src/lib/session-store.ts
-import { useVoice } from "@/lib/hume-lib/VoiceProvider";
+import { useVoice } from "@/lib/VoiceProvider";
 
 export interface StoredMessage {
   message: {

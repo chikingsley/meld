@@ -1,6 +1,6 @@
 import { useCallback, useState } from 'react';
 
-import type { ToolCall, ToolError, ToolResponse } from '@/lib/hume-lib/models/messages';
+import type { ToolCall, ToolError, ToolResponse } from '@/models/messages';
 
 export const useToolStatus = () => {
   const [store, setStore] = useState<

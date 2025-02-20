@@ -2,14 +2,14 @@
 import type { CloseEvent } from 'hume/core';
 import { useCallback, useState } from 'react';
 
-import type { ConnectionMessage } from '../connection-message';
+import type { ConnectionMessage } from '../lib/connection-message';
 import type {
   AssistantTranscriptMessage,
   ChatMetadataMessage,
   JSONMessage,
   UserTranscriptMessage,
 } from '../models/messages';
-import { keepLastN } from '@/lib/hume-lib/utils';
+import { keepLastN } from '@/lib/utils';
 
 export const useMessages = ({
   sendMessageToParent,

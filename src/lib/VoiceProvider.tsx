@@ -13,19 +13,19 @@ import {
 
 import { ConnectionMessage } from './connection-message';
 import { noop } from './noop';
-import { useCallDuration } from './hooks/useCallDuration';
-import { useEncoding } from './hooks/useEncoding';
-import { useMessages } from './hooks/useMessages';
-import { useMicrophone } from './hooks/useMicrophone';
-import { useSoundPlayer } from './hooks/useSoundPlayer';
-import { useToolStatus } from './hooks/useToolStatus';
-import { usePlayerStore } from '@/lib/stores/usePlayerStore';
+import { useCallDuration } from '../hooks/useCallDuration';
+import { useEncoding } from '../hooks/useEncoding';
+import { useMessages } from '../hooks/useMessages';
+import { useMicrophone } from '../hooks/useMicrophone';
+import { useSoundPlayer } from '../hooks/useSoundPlayer';
+import { useToolStatus } from '../hooks/useToolStatus';
+import { usePlayerStore } from '@/stores/usePlayerStore';
 import {
   SocketConfig,
   ToolCallHandler,
   useVoiceClient,
   VoiceReadyState,
-} from './hooks/useVoiceClient';
+} from '../hooks/useVoiceClient';
 import {
   AssistantTranscriptMessage,
   AudioOutputMessage,
@@ -33,7 +33,7 @@ import {
   JSONMessage,
   UserInterruptionMessage,
   UserTranscriptMessage,
-} from './models/messages';
+} from '../models/messages';
 
 type VoiceError =
   | { type: 'socket_error'; message: string; error?: Error }

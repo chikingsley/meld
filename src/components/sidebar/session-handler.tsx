@@ -1,5 +1,5 @@
 // src/components/sidebar/session-handler.tsx
-import { useVoice } from "@/lib/hume-lib/VoiceProvider";
+import { useVoice } from "@/lib/VoiceProvider";
 import React, { createContext, useContext, useCallback } from "react";
 
 interface SessionHandlerProps {

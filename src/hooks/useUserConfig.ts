@@ -1,6 +1,6 @@
 import { useUser } from '@clerk/clerk-react';
 import { useEffect } from 'react';
-import { useUserStore } from '@/lib/stores/useUserStore';
+import { useUserStore } from '@/stores/useUserStore';
 
 export function useUserConfig() {
   const { user } = useUser();

@@ -9,7 +9,7 @@ import React, {
   useMemo,
 } from 'react';
 import { ChatSession } from '@/components/sidebar/session-item';
-import { sessionStore, StoredSession } from '@/lib/session-store';
+import { sessionStore, StoredSession } from '@/db/session-store';
 import { useUser } from '@clerk/clerk-react';
 import { formatDistanceToNow } from 'date-fns';
 import { useNavigate } from 'react-router-dom';

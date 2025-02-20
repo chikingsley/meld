@@ -1,10 +1,10 @@
 // src/components/chat-window/Chat.tsx
-import { useVoice } from "@/lib/hume-lib/VoiceProvider";
+import { useVoice } from "@/lib/VoiceProvider";
 import Messages from "./Messages";
 import BottomControls from "../chat-input/BottomControls";
 import { ComponentRef, useEffect, useRef, useState } from "react";
 import { useParams } from "react-router-dom";
-import { sessionStore, StoredMessage } from "@/lib/session-store";
+import { sessionStore, StoredMessage } from "@/db/session-store";
 
 interface ClientComponentProps {
   sessionId?: string;

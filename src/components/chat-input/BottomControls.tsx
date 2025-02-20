@@ -8,7 +8,7 @@ import { useIsMobile } from "@/hooks/use-mobile"
 import { ChatInputForm } from "@/components/chat-input/ChatInputForm"
 import Controls from "@/components/chat-input/controls"
 import { cn } from "@/utils"
-import { useVoice } from "@/lib/hume-lib/VoiceProvider"
+import { useVoice } from "@/lib/VoiceProvider"
 
 interface BottomControlsProps {
   sessionId?: string;
