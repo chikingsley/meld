@@ -12,8 +12,6 @@ import {
 import { VoiceStateContext } from './contexts/VoiceStateContext';
 import { VoiceActionsContext } from './contexts/VoiceActionsContext';
 import { VoiceMessagesContext } from './contexts/VoiceMessagesContext';
-import { AudioVisualizationProvider } from './contexts/AudioVisualizationContext';
-import { ConnectionMessage } from './connection-message';
 import { noop } from './noop';
 import { useCallDuration } from './hooks/useCallDuration';
 import { useEncoding } from './hooks/useEncoding';
@@ -28,15 +26,13 @@ import {
   VoiceReadyState,
 } from './hooks/useVoiceClient';
 import {
-  AssistantTranscriptMessage,
   AudioOutputMessage,
-  ChatMetadataMessage,
   JSONMessage,
   UserInterruptionMessage,
   UserTranscriptMessage,
 } from '@/lib/hume-lib/models/messages';
 
-import { VoiceError, VoiceStatus, VoiceContext, VoiceContextType, useVoice } from './contexts/VoiceContext';
+import { VoiceError, VoiceStatus, VoiceContext, useVoice } from './contexts/VoiceContext';
 
 export { useVoice };
 
@@ -416,21 +412,6 @@ export const VoiceProvider: FC<VoiceProviderProps> = ({
     [micPermission, stopTimer, disconnectFromVoice, status.value],
   );
 
-  const reconnect = useCallback(async () => {
-    console.log('[VoiceProvider] Attempting to reconnect...');
-    try {
-      await disconnectFromVoice();
-      // Wait for cleanup to complete
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      await connect();
-      console.log('[VoiceProvider] Reconnection successful');
-    } catch (e) {
-      console.error('[VoiceProvider] Reconnection failed:', e);
-      const message = e instanceof Error ? e.message : 'Reconnection failed';
-      updateError({ type: 'socket_error', message });
-    }
-  }, [disconnectFromVoice, connect]);
-
   useEffect(() => {
     if (
       error !== null &&
@@ -608,9 +589,7 @@ export const VoiceProvider: FC<VoiceProviderProps> = ({
       <VoiceStateContext.Provider value={stateValue}>
         <VoiceActionsContext.Provider value={actionsValue}>
           <VoiceMessagesContext.Provider value={messagesValue}>
-            <AudioVisualizationProvider fft={player.fft} micFft={mic.fft}>
               {children}
-            </AudioVisualizationProvider>
           </VoiceMessagesContext.Provider>
         </VoiceActionsContext.Provider>
       </VoiceStateContext.Provider>

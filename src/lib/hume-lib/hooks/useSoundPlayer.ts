@@ -4,6 +4,7 @@ import { useCallback, useRef, useState } from 'react';
 import { convertLinearFrequenciesToBark } from '../convertFrequencyScale';
 import { generateEmptyFft } from '../generateEmptyFft';
 import type { AudioOutputMessage } from '../models/messages';
+import { useFFTStore } from '@/lib/audio/stores/fftStore';
 
 export const useSoundPlayer = (props: {
   onError: (message: string) => void;
@@ -12,7 +13,7 @@ export const useSoundPlayer = (props: {
 }) => {
   const [isPlaying, setIsPlaying] = useState(false);
   const [isAudioMuted, setIsAudioMuted] = useState(false);
-  const [fft, setFft] = useState<number[]>(generateEmptyFft());
+  const setPlayerFft = useFFTStore(state => state.setPlayerFft);
 
   const audioContext = useRef<AudioContext | null>(null);
   const analyserNode = useRef<AnalyserNode | null>(null);
@@ -87,9 +88,9 @@ export const useSoundPlayer = (props: {
           dataArray,
           bufferSampleRate,
         );
-        setFft(() => barkFrequencies);
+        setPlayerFft(barkFrequencies);
       } catch (e) {
-        setFft(generateEmptyFft());
+        setPlayerFft(generateEmptyFft());
       }
     };
 
@@ -105,7 +106,7 @@ export const useSoundPlayer = (props: {
       if (frequencyDataIntervalId.current) {
         clearInterval(frequencyDataIntervalId.current);
       }
-      setFft(generateEmptyFft());
+      setPlayerFft(generateEmptyFft());
       bufferSource.disconnect();
       isProcessing.current = false;
       setIsPlaying(false);
@@ -202,7 +203,7 @@ export const useSoundPlayer = (props: {
 
     clipQueue.current = [];
     setQueueLength(0);
-    setFft(generateEmptyFft());
+    setPlayerFft(generateEmptyFft());
   }, []);
 
   const clearQueue = useCallback(() => {
@@ -215,7 +216,7 @@ export const useSoundPlayer = (props: {
     setQueueLength(0);
     isProcessing.current = false;
     setIsPlaying(false);
-    setFft(generateEmptyFft());
+    setPlayerFft(generateEmptyFft());
   }, []);
 
   const muteAudio = useCallback(() => {
@@ -234,7 +235,6 @@ export const useSoundPlayer = (props: {
 
   return {
     addToQueue,
-    fft,
     initPlayer,
     isPlaying,
     isAudioMuted,

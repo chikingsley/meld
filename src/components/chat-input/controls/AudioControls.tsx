@@ -1,10 +1,10 @@
 import { memo } from "react";
-import { useAudioVisualization } from "@/lib/hume-lib/contexts/AudioVisualizationContext";
+import { useFFTStore } from "@/lib/audio/stores/fftStore";
 import { MuteToggle } from "./MuteToggle";
 import MicFFT from "./MicFFT";
 
 export const AudioControls = memo(() => {
-  const { micFft } = useAudioVisualization();
+  const micFft = useFFTStore(state => state.micFft);
 
   return (
     <div className="flex items-center gap-4">

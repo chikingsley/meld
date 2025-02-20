@@ -7,6 +7,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import type { MutableRefObject } from 'react';
 
 import { generateEmptyFft } from '../generateEmptyFft';
+import { useFFTStore } from '@/lib/audio/stores/fftStore';
 
 export type MicrophoneProps = {
   streamRef: MutableRefObject<MediaStream | null>;
@@ -21,7 +22,8 @@ export const useMicrophone = (props: MicrophoneProps) => {
   const [isMuted, setIsMuted] = useState(false);
   const isMutedRef = useRef(isMuted);
 
-  const [fft, setFft] = useState<number[]>(generateEmptyFft());
+  const setMicFft = useFFTStore(state => state.setMicFft);
+  // @ts-ignore: Meyda types are not up to date
   const currentAnalyzer = useRef<Meyda.MeydaAnalyzer | null>(null);
   const mimeTypeRef = useRef<MimeType | null>(null);
 
@@ -64,7 +66,7 @@ export const useMicrophone = (props: MicrophoneProps) => {
         featureExtractors: ['loudness'],
         callback: (features: MeydaFeaturesObject) => {
           const newFft = features.loudness.specific || [];
-          setFft(() => Array.from(newFft));
+          setMicFft(Array.from(newFft));
         },
       });
 
@@ -123,7 +125,7 @@ export const useMicrophone = (props: MicrophoneProps) => {
   const mute = useCallback(() => {
     if (currentAnalyzer.current) {
       currentAnalyzer.current.stop();
-      setFft(generateEmptyFft());
+      setMicFft(generateEmptyFft());
     }
 
     streamRef.current?.getTracks().forEach((track) => {
@@ -182,6 +184,5 @@ export const useMicrophone = (props: MicrophoneProps) => {
     mute,
     unmute,
     isMuted,
-    fft,
   };
 };
