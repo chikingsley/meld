@@ -1,8 +1,8 @@
 // src/components/sidebar/session-item.tsx
 "use client"
 
-import { useReducer, useCallback, memo } from "react"
-import { MessageSquare, Pencil, Trash2, Check, X } from "lucide-react"
+import { useReducer, useCallback, memo, useRef, useEffect } from "react"
+import { MessageSquare, Trash2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { SidebarMenuButton, SidebarMenuItem } from "@/components/ui/sidebar"
@@ -67,10 +67,30 @@ export const SessionItem = memo(({
     dispatch({ type: 'CANCEL_EDIT' });
   }, []);
 
-  const handleStartEditing = useCallback((e: React.MouseEvent) => {
+  const handleDoubleClick = useCallback((e: React.MouseEvent) => {
     e.stopPropagation();
     dispatch({ type: 'START_EDITING' });
   }, []);
+
+  // Handle click outside
+  const inputRef = useRef<HTMLInputElement>(null);
+  
+  useEffect(() => {
+    if (!state.isEditing) return;
+
+    const handleClickOutside = (e: MouseEvent) => {
+      if (inputRef.current && !inputRef.current.contains(e.target as Node)) {
+        if (state.title !== session.title) {
+          handleRename();
+        } else {
+          handleCancel();
+        }
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [state.isEditing, state.title, session.title, handleRename, handleCancel]);
 
   const handleDelete = useCallback((e: React.MouseEvent) => {
     e.stopPropagation();
@@ -91,66 +111,46 @@ export const SessionItem = memo(({
   }, [handleRename, handleCancel]);
 
   return (
-    <SidebarMenuItem className="relative hover:bg-accent/50">
+    <SidebarMenuItem className="group/item relative hover:bg-accent/50">
       {state.isEditing ? (
-        <div className="flex items-center gap-1 px-4 py-6">
-          <MessageSquare className="size-4 shrink-0" />
-          <div className="flex flex-1 flex-col min-w-0">
-            <div className="flex items-center gap-1">
-              <Input
-                value={state.title}
-                onChange={handleTitleChange}
-                className="h-6 text-sm"
-                autoFocus
-                onKeyDown={handleKeyDown}
-              />
-              <Button
-                variant="ghost"
-                size="icon"
-                className="size-6"
-                onClick={handleRename}
-              >
-                <Check className="size-3" />
-              </Button>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="size-6"
-                onClick={handleCancel}
-              >
-                <X className="size-3" />
-              </Button>
-            </div>
-            <span className="truncate text-xs text-muted-foreground">
+        <SidebarMenuButton
+          data-active={session.isActive}
+          size="md"
+          className="w-full transition-colors group-hover/item:pr-16 [&:not(.group-hover/item)]:pr-4"
+        >
+          <MessageSquare className="size-4 shrink-0" strokeWidth={1.5} />
+          <div className="flex flex-1 flex-col min-w-0 gap-0.5">
+            <Input
+              ref={inputRef}
+              value={state.title}
+              onChange={handleTitleChange}
+              className="h-6 min-h-0 px-0 py-0 text-sm bg-transparent border-none focus-visible:ring-0 font-medium"
+              autoFocus
+              onKeyDown={handleKeyDown}
+            />
+            <span className="truncate text-xs text-muted-foreground/80">
               {session.timestamp}
             </span>
           </div>
-        </div>
+        </SidebarMenuButton>
       ) : (
         <>
           <SidebarMenuButton
             onClick={handleSelect}
+            onDoubleClick={handleDoubleClick}
             data-active={session.isActive}
             size="md"
-            className="peer w-full pr-20 transition-colors hover:bg-accent/50"
+            className="w-full transition-colors group-hover/item:pr-16 [&:not(.group-hover/item)]:pr-4"
           >
             <MessageSquare className="size-4 shrink-0" strokeWidth={1.5} />
-            <div className="flex flex-1 flex-col min-w-0 gap-0.5">
+            <div className="flex flex-1 flex-col min-w-0 gap-0.5 transition-[padding] duration-200">
               <span className="truncate font-medium">{session.title}</span>
               <span className="truncate text-xs text-muted-foreground/80">
                 {session.timestamp}
               </span>
             </div>
           </SidebarMenuButton>
-          <div className="absolute right-2 top-1/2 -translate-y-1/2 flex gap-1 opacity-0 peer-hover:opacity-100 hover:opacity-100 transition-opacity">
-            <Button
-              variant="ghost"
-              size="icon"
-              className="size-6"
-              onClick={handleStartEditing}
-            >
-              <Pencil className="size-3" />
-            </Button>
+          <div className="absolute right-2 top-1/2 -translate-y-1/2 opacity-0 group-hover/item:opacity-100 transition-opacity">
             <Button
               variant="ghost"
               size="icon"
