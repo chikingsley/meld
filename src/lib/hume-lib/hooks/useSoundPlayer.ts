@@ -2,11 +2,11 @@ import { convertBase64ToBlob } from 'hume';
 import { useCallback, useRef, useState } from 'react';
 
 import { convertLinearFrequenciesToBark } from '../convertFrequencyScale';
-import { generateEmptyFft } from '../generateEmptyFft';
+import { generateEmptyFft } from '@/lib/hume-lib/generateEmptyFTT';
 import type { AudioOutputMessage } from '../models/messages';
-import { useFFTStore } from '@/lib/stores/fftStore';
-import { useMuteStore } from '@/lib/stores/muteStore';
-import { usePlayerStore } from '@/lib/stores/playerStore';
+import { useFFTStore } from '@/lib/stores/useFFTStore';
+import { useMuteStore } from '@/lib/stores/useMuteStore';
+import { usePlayerStore } from '@/lib/stores/usePlayerStore';
 
 export const useSoundPlayer = (props: {
   onError: (message: string) => void;

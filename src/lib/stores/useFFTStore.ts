@@ -1,6 +1,6 @@
 // src/lib/audio/stores/fftStore.ts
 import { create } from 'zustand';
-import { generateEmptyFft } from '@/lib/hume-lib/generateEmptyFft';
+import { generateEmptyFft } from '@/lib/hume-lib/generateEmptyFTT';
 
 interface FFTState {
   playerFft: number[];

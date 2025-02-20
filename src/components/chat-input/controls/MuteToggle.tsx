@@ -1,7 +1,7 @@
 import { memo, useCallback } from "react";
 import { Toggle } from "@/components/ui/toggle";
 import { Mic, MicOff } from "lucide-react";
-import { useMuteStore } from "@/lib/stores/muteStore";
+import { useMuteStore } from "@/lib/stores/useMuteStore";
 
 export const MuteToggle = memo(() => {
   const { isMicMuted, mute, unmute } = useMuteStore();

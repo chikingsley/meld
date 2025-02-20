@@ -19,7 +19,7 @@ import { useMessages } from './hooks/useMessages';
 import { useMicrophone } from './hooks/useMicrophone';
 import { useSoundPlayer } from './hooks/useSoundPlayer';
 import { useToolStatus } from './hooks/useToolStatus';
-import { usePlayerStore } from '@/lib/stores/playerStore';
+import { usePlayerStore } from '@/lib/stores/usePlayerStore';
 import {
   SocketConfig,
   ToolCallHandler,
