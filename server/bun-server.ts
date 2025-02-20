@@ -66,6 +66,7 @@ const server = Bun.serve({
 
     // Chat completions
     if (url.pathname === '/api/chat/completions' && req.method === 'POST') {
+      console.log('Chat completions request received');
       return Response.json({ success: true }, { headers: corsHeaders });
     }
 
