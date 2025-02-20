@@ -13,7 +13,6 @@ export const useSoundPlayer = (props: {
   onStopAudio: (id: string) => void;
 }) => {
   const [isPlaying, setIsPlaying] = useState(false);
-  const isAudioMuted = useMuteStore(state => state.isAudioMuted);
   const setAudioMuted = useMuteStore(state => state.setAudioMuted);
   const setPlayerFft = useFFTStore(state => state.setPlayerFft);
 
@@ -239,7 +238,6 @@ export const useSoundPlayer = (props: {
     addToQueue,
     initPlayer,
     isPlaying,
-    isAudioMuted,
     muteAudio,
     unmuteAudio,
     stopAll,
