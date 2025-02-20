@@ -1,5 +1,5 @@
 import { memo } from "react";
-import { useFFTStore } from "@/lib/audio/stores/fftStore";
+import { useFFTStore } from "@/lib/stores/fftStore";
 import { MuteToggle } from "./MuteToggle";
 import MicFFT from "./MicFFT";
 

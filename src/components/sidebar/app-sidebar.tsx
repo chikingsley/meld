@@ -11,8 +11,7 @@ import { useSessionContext } from "@/contexts/SessionContext"
 import { VoiceCleanupWrapper, useVoiceCleanupHandlers } from "./voice-cleanup"
 
 const SidebarInner = ({ className, ...props }: React.ComponentProps<typeof Sidebar>) => {
-  const { sessions, createSession, selectSession, deleteSession, updateSession, loading, error } = useSessionContext();
-  const navigate = useNavigate();
+  const { sessions, updateSession, loading, error } = useSessionContext();
   const voiceHandlers = useVoiceCleanupHandlers();
 
   // Base handlers for operations that don't need voice cleanup

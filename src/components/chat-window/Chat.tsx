@@ -11,7 +11,7 @@ interface ClientComponentProps {
   onNewSession?: () => void;
 }
 
-export default function ClientComponent({ sessionId, onNewSession }: ClientComponentProps) {
+export default function ClientComponent({ sessionId }: ClientComponentProps) {
   const timeout = useRef<number | null>(null);
   const ref = useRef<ComponentRef<typeof Messages> | null>(null);
   const { messages, clearMessages, status } = useVoice();
@@ -141,7 +141,6 @@ export default function ClientComponent({ sessionId, onNewSession }: ClientCompo
         <Messages ref={ref} messages={displayMessages} />
         <BottomControls 
           sessionId={sessionId}
-          onNewSession={onNewSession}
         />
     </div>
   );

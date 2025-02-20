@@ -7,8 +7,8 @@ import { useCallback, useEffect, useRef } from 'react';
 import type { MutableRefObject } from 'react';
 
 import { generateEmptyFft } from '../generateEmptyFft';
-import { useFFTStore } from '@/lib/audio/stores/fftStore';
-import { useMuteStore } from '@/lib/audio/stores/muteStore';
+import { useFFTStore } from '@/lib/stores/fftStore';
+import { useMuteStore } from '@/lib/stores/muteStore';
 
 export type MicrophoneProps = {
   streamRef: MutableRefObject<MediaStream | null>;

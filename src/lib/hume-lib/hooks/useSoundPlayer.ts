@@ -4,15 +4,16 @@ import { useCallback, useRef, useState } from 'react';
 import { convertLinearFrequenciesToBark } from '../convertFrequencyScale';
 import { generateEmptyFft } from '../generateEmptyFft';
 import type { AudioOutputMessage } from '../models/messages';
-import { useFFTStore } from '@/lib/audio/stores/fftStore';
-import { useMuteStore } from '@/lib/audio/stores/muteStore';
+import { useFFTStore } from '@/lib/stores/fftStore';
+import { useMuteStore } from '@/lib/stores/muteStore';
+import { usePlayerStore } from '@/lib/stores/playerStore';
 
 export const useSoundPlayer = (props: {
   onError: (message: string) => void;
   onPlayAudio: (id: string) => void;
   onStopAudio: (id: string) => void;
 }) => {
-  const [isPlaying, setIsPlaying] = useState(false);
+  const { isPlaying, setIsPlaying, clipQueue: storeClipQueue, setCurrentlyPlayingAudioBuffer, addToQueue: addToStoreQueue, clearQueue: clearStoreQueue } = usePlayerStore();
   const setAudioMuted = useMuteStore(state => state.setAudioMuted);
   const setPlayerFft = useFFTStore(state => state.setPlayerFft);
 
@@ -21,18 +22,11 @@ export const useSoundPlayer = (props: {
   const gainNode = useRef<GainNode | null>(null);
   const isInitialized = useRef(false);
 
-  const clipQueue = useRef<
-    Array<{
-      id: string;
-      buffer: AudioBuffer;
-    }>
-  >([]);
-  const [queueLength, setQueueLength] = useState(0);
+  const clipQueue = useRef<Array<{id: string; buffer: AudioBuffer}>>(storeClipQueue);
+  const [queueLength, setQueueLength] = useState(storeClipQueue.length);
 
   const isProcessing = useRef(false);
-  const currentlyPlayingAudioBuffer = useRef<AudioBufferSourceNode | null>(
-    null,
-  );
+  const currentlyPlayingAudioBuffer = useRef<AudioBufferSourceNode | null>(null);
   const frequencyDataIntervalId = useRef<number | null>(null);
 
   const onPlayAudio = useRef<typeof props.onPlayAudio>(props.onPlayAudio);
@@ -72,6 +66,7 @@ export const useSoundPlayer = (props: {
     bufferSource.connect(analyserNode.current);
 
     currentlyPlayingAudioBuffer.current = bufferSource;
+    setCurrentlyPlayingAudioBuffer(bufferSource);
 
     const updateFrequencyData = () => {
       try {
@@ -149,7 +144,11 @@ export const useSoundPlayer = (props: {
         const audioBuffer =
           await audioContext.current.decodeAudioData(arrayBuffer);
 
-        clipQueue.current.push({
+        addToStoreQueue({
+      id: message.id,
+      buffer: audioBuffer,
+    });
+    clipQueue.current.push({
           id: message.id,
           buffer: audioBuffer,
         });
@@ -202,10 +201,11 @@ export const useSoundPlayer = (props: {
         });
     }
 
+    clearStoreQueue();
     clipQueue.current = [];
     setQueueLength(0);
     setPlayerFft(generateEmptyFft());
-  }, [setAudioMuted, setPlayerFft]);
+  }, [setAudioMuted, setPlayerFft, clearStoreQueue]);
 
   const clearQueue = useCallback(() => {
     if (currentlyPlayingAudioBuffer.current) {
@@ -213,12 +213,13 @@ export const useSoundPlayer = (props: {
       currentlyPlayingAudioBuffer.current = null;
     }
 
+    clearStoreQueue();
     clipQueue.current = [];
     setQueueLength(0);
     isProcessing.current = false;
     setIsPlaying(false);
     setPlayerFft(generateEmptyFft());
-  }, [setPlayerFft]);
+  }, [setPlayerFft, clearStoreQueue]);
 
   const muteAudio = useCallback(() => {
     if (gainNode.current && audioContext.current) {
@@ -237,11 +238,9 @@ export const useSoundPlayer = (props: {
   return {
     addToQueue,
     initPlayer,
-    isPlaying,
     muteAudio,
     unmuteAudio,
     stopAll,
     clearQueue,
-    queueLength,
   };
 };

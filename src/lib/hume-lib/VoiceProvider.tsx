@@ -1,17 +1,17 @@
 import { type Hume } from 'hume';
 import {
+  createContext,
   FC,
   PropsWithChildren,
   useCallback,
+  useContext,
   useEffect,
   useMemo,
   useRef,
   useState,
 } from 'react';
 
-import { VoiceStateContext } from './contexts/VoiceStateContext';
-import { VoiceActionsContext } from './contexts/VoiceActionsContext';
-import { VoiceMessagesContext } from './contexts/VoiceMessagesContext';
+import { ConnectionMessage } from './connection-message';
 import { noop } from './noop';
 import { useCallDuration } from './hooks/useCallDuration';
 import { useEncoding } from './hooks/useEncoding';
@@ -19,6 +19,7 @@ import { useMessages } from './hooks/useMessages';
 import { useMicrophone } from './hooks/useMicrophone';
 import { useSoundPlayer } from './hooks/useSoundPlayer';
 import { useToolStatus } from './hooks/useToolStatus';
+import { usePlayerStore } from '@/lib/stores/playerStore';
 import {
   SocketConfig,
   ToolCallHandler,
@@ -26,15 +27,62 @@ import {
   VoiceReadyState,
 } from './hooks/useVoiceClient';
 import {
+  AssistantTranscriptMessage,
   AudioOutputMessage,
+  ChatMetadataMessage,
   JSONMessage,
   UserInterruptionMessage,
   UserTranscriptMessage,
-} from '@/lib/hume-lib/models/messages';
+} from './models/messages';
 
-import { VoiceError, VoiceStatus, VoiceContext, useVoice } from './contexts/VoiceContext';
+type VoiceError =
+  | { type: 'socket_error'; message: string; error?: Error }
+  | { type: 'audio_error'; message: string; error?: Error }
+  | { type: 'mic_error'; message: string; error?: Error };
 
-export { useVoice };
+type VoiceStatus =
+  | {
+    value: 'disconnected' | 'disconnecting' | 'connecting' | 'connected';
+    reason?: never;
+  }
+  | {
+    value: 'error';
+    reason: string;
+  };
+
+export type VoiceContextType = {
+  connect: () => Promise<void>;
+  disconnect: () => void;
+  messages: (JSONMessage | ConnectionMessage)[];
+  lastVoiceMessage: AssistantTranscriptMessage | null;
+  lastUserMessage: UserTranscriptMessage | null;
+  clearMessages: () => void;
+  muteAudio: () => void;
+  unmuteAudio: () => void;
+  readyState: VoiceReadyState;
+  sendUserInput: (text: string) => void;
+  sendAssistantInput: (text: string) => void;
+  sendSessionSettings: Hume.empathicVoice.chat.ChatSocket['sendSessionSettings'];
+  sendToolMessage: (
+    type:
+      | Hume.empathicVoice.ToolResponseMessage
+      | Hume.empathicVoice.ToolErrorMessage,
+  ) => void;
+  pauseAssistant: () => void;
+  resumeAssistant: () => void;
+  status: VoiceStatus;
+  error: VoiceError | null;
+  isAudioError: boolean;
+  isError: boolean;
+  isMicrophoneError: boolean;
+  isSocketError: boolean;
+  callDurationTimestamp: string | null;
+  toolStatusStore: ReturnType<typeof useToolStatus>['store'];
+  chatMetadata: ChatMetadataMessage | null;
+  isPaused: boolean;
+};
+
+const VoiceContext = createContext<VoiceContextType | null>(null);
 
 export type VoiceProviderProps = PropsWithChildren<SocketConfig> & {
   sessionSettings?: Hume.empathicVoice.SessionSettings;
@@ -59,6 +107,14 @@ export type VoiceProviderProps = PropsWithChildren<SocketConfig> & {
    * @description The maximum number of messages to keep in memory.
    */
   messageHistoryLimit?: number;
+};
+
+export const useVoice = () => {
+  const ctx = useContext(VoiceContext);
+  if (!ctx) {
+    throw new Error('useVoice must be used within an VoiceProvider');
+  }
+  return ctx;
 };
 
 export const VoiceProvider: FC<VoiceProviderProps> = ({
@@ -163,8 +219,7 @@ export const VoiceProvider: FC<VoiceProviderProps> = ({
           message.type === 'user_interruption' ||
           message.type === 'user_message'
         ) {
-          if (player.isPlaying) {
-            console.log('[VoiceProvider] User interrupted, clearing queue');
+          if (usePlayerStore.getState().isPlaying) {
             onInterruption.current(message);
           }
           player.clearQueue();
@@ -505,16 +560,13 @@ export const VoiceProvider: FC<VoiceProviderProps> = ({
     [clientSendToolMessage, updateError],
   );
 
-
-
   const stateValue = useMemo(
     () => ({
       status,
       error,
-      isPlaying: player.isPlaying,
       isPaused,
     }),
-    [status, error, player.isPlaying, isPaused]
+    [status, error, isPaused]
   );
 
   const actionsValue = useMemo(
@@ -528,20 +580,15 @@ export const VoiceProvider: FC<VoiceProviderProps> = ({
     [connect, disconnect, sendUserInput, messageStore.clearMessages, sendSessionSettings]
   );
 
-  const messagesValue = useMemo(
-    () => ({
-      messages: messageStore.messages,
-      lastVoiceMessage: messageStore.lastVoiceMessage,
-      lastUserMessage: messageStore.lastUserMessage,
-    }),
-    [messageStore.messages, messageStore.lastVoiceMessage, messageStore.lastUserMessage]
-  );
+
 
   const contextValue = useMemo(
     () => ({
       ...stateValue,
       ...actionsValue,
-      ...messagesValue,
+      messages: messageStore.messages,
+      lastVoiceMessage: messageStore.lastVoiceMessage,
+      lastUserMessage: messageStore.lastUserMessage,
       readyState: client.readyState,
       sendAssistantInput,
       sendSessionSettings,
@@ -557,12 +604,10 @@ export const VoiceProvider: FC<VoiceProviderProps> = ({
       callDurationTimestamp,
       toolStatusStore: toolStatus.store,
       chatMetadata: messageStore.chatMetadata,
-      playerQueueLength: player.queueLength
     }),
     [
       stateValue,
       actionsValue,
-      messagesValue,
       client.readyState,
       sendAssistantInput,
       sendSessionSettings,
@@ -575,19 +620,12 @@ export const VoiceProvider: FC<VoiceProviderProps> = ({
       callDurationTimestamp,
       toolStatus.store,
       messageStore.chatMetadata,
-      player.queueLength
     ]
   );
 
   return (
     <VoiceContext.Provider value={contextValue}>
-      <VoiceStateContext.Provider value={stateValue}>
-        <VoiceActionsContext.Provider value={actionsValue}>
-          <VoiceMessagesContext.Provider value={messagesValue}>
-              {children}
-          </VoiceMessagesContext.Provider>
-        </VoiceActionsContext.Provider>
-      </VoiceStateContext.Provider>
+      {children}
     </VoiceContext.Provider>
   );
 };

@@ -8,7 +8,6 @@ import { Layout } from '@/components/layout/layout';
 import Session from '@/pages/Session';
 import Settings from '@/pages/Settings';
 import { SessionProvider } from '@/contexts/SessionContext';
-// import { DatabaseProvider } from '@/components/providers/DatabaseProvider';
 
 const clerkPubKey = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY;
 
@@ -22,7 +21,6 @@ function App() {
   return (
     <BrowserRouter>
       <ClerkProvider publishableKey={clerkPubKey}>
-        {/* <DatabaseProvider> */}
           <VoiceProvider auth={{ type: 'accessToken', value: accessToken || '' }}>
             <SessionProvider>
               <Routes>
@@ -35,7 +33,6 @@ function App() {
               </Routes>
             </SessionProvider>
           </VoiceProvider>
-        {/* </DatabaseProvider> */}
       </ClerkProvider>
     </BrowserRouter>
   );

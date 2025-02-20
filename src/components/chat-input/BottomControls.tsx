@@ -8,20 +8,15 @@ import { useIsMobile } from "@/hooks/use-mobile"
 import { ChatInputForm } from "@/components/chat-input/ChatInputForm"
 import Controls from "@/components/chat-input/controls"
 import { cn } from "@/utils"
-import { useVoiceState } from "@/lib/hume-lib/contexts/VoiceStateContext"
-import { useVoiceActions } from "@/lib/hume-lib/contexts/VoiceActionsContext"
 import { useVoice } from "@/lib/hume-lib/VoiceProvider"
 
 interface BottomControlsProps {
   sessionId?: string;
-  onNewSession?: () => void;
 }
 
-const BottomControls = React.memo(({ sessionId, onNewSession }: BottomControlsProps) => {
+const BottomControls = React.memo(({ sessionId }: BottomControlsProps) => {
   // Split state subscriptions for better performance
-  const { status } = useVoiceState();
-  const { connect, disconnect, sendSessionSettings } = useVoiceActions();
-  const { clearMessages } = useVoice();
+  const { status, connect, disconnect, sendSessionSettings } = useVoice();
   const [isTransitioning, setIsTransitioning] = React.useState(false)
   const isMobile = useIsMobile()
 
@@ -42,7 +37,7 @@ const BottomControls = React.memo(({ sessionId, onNewSession }: BottomControlsPr
     try {
       if (sessionId) {
         // Always set session ID before connecting
-        await sendSessionSettings({ type: 'session_settings', customSessionId: sessionId })
+        await sendSessionSettings({ customSessionId: sessionId })
         // Don't clear messages when starting call
         await connect()
       }
@@ -51,15 +46,6 @@ const BottomControls = React.memo(({ sessionId, onNewSession }: BottomControlsPr
     } finally {
       setIsTransitioning(false)
     }
-  }
-
-  const handleNewChat = async () => {
-    if (status.value === 'connected') {
-      await handleEndCall()
-    }
-    // Clear messages when starting a new chat
-    clearMessages()
-    onNewSession?.()
   }
   
   // Show controls during connection process and connected state
