@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 import { ClerkProvider } from '@clerk/react-router'
 import { getHumeAccessToken } from './utils/getHumeAccessToken';
-import { Layout } from '@/components/layout/layout';
+import { Layout } from '@/layout';
 import Session from '@/pages/Session';
 import Settings from '@/pages/Settings';
 import { SessionProvider } from '@/contexts/SessionContext';
