@@ -29,7 +29,6 @@ export type VoiceStatus =
 export interface VoiceContextType {
   connect: () => Promise<void>;
   disconnect: () => void;
-  isMuted: boolean;
   isAudioMuted: boolean;
   isPlaying: boolean;
   messages: (JSONMessage | ConnectionMessage)[];

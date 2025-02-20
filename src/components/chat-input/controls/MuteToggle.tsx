@@ -1,24 +1,22 @@
 import { memo, useCallback } from "react";
 import { Toggle } from "@/components/ui/toggle";
 import { Mic, MicOff } from "lucide-react";
-import { useVoiceState } from "@/lib/hume-lib/contexts/VoiceStateContext";
-import { useVoiceActions } from "@/lib/hume-lib/contexts/VoiceActionsContext";
+import { useMuteStore } from "@/lib/audio/stores/muteStore";
 
 export const MuteToggle = memo(() => {
-  const { isMuted } = useVoiceState();
-  const { mute, unmute } = useVoiceActions();
+  const { isMicMuted, mute, unmute } = useMuteStore();
 
   const handleMuteChange = useCallback(() => {
-    if (isMuted) {
+    if (isMicMuted) {
       unmute();
     } else {
       mute();
     }
-  }, [isMuted, mute, unmute]);
+  }, [isMicMuted, mute, unmute]);
 
   return (
-    <Toggle pressed={!isMuted} onPressedChange={handleMuteChange}>
-      {isMuted ? <MicOff className="size-4" /> : <Mic className="size-4" />}
+    <Toggle pressed={!isMicMuted} onPressedChange={handleMuteChange}>
+      {isMicMuted ? <MicOff className="size-4" /> : <Mic className="size-4" />}
     </Toggle>
   );
 });

@@ -5,8 +5,6 @@ import { type Hume } from 'hume';
 interface VoiceActionsContextState {
   connect: () => Promise<void>;
   disconnect: () => void;
-  mute: () => void;
-  unmute: () => void;
   sendUserInput: (text: string) => void;
   clearMessages: () => void;
   sendSessionSettings: (sessionSettings: Hume.empathicVoice.SessionSettings) => void;

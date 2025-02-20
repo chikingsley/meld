@@ -19,7 +19,6 @@ type VoiceStatus =
 interface VoiceStateContextState {
   status: VoiceStatus;
   error: VoiceError | null;
-  isMuted: boolean;
   isPlaying: boolean;
   isPaused: boolean;
 }

@@ -3,11 +3,12 @@ import type { MimeType } from 'hume';
 import { getBrowserSupportedMimeType } from 'hume';
 import Meyda from 'meyda';
 import type { MeydaFeaturesObject } from 'meyda';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import type { MutableRefObject } from 'react';
 
 import { generateEmptyFft } from '../generateEmptyFft';
 import { useFFTStore } from '@/lib/audio/stores/fftStore';
+import { useMuteStore } from '@/lib/audio/stores/muteStore';
 
 export type MicrophoneProps = {
   streamRef: MutableRefObject<MediaStream | null>;
@@ -19,7 +20,8 @@ export type MicrophoneProps = {
 
 export const useMicrophone = (props: MicrophoneProps) => {
   const { streamRef, onAudioCaptured, onError } = props;
-  const [isMuted, setIsMuted] = useState(false);
+  const isMuted = useMuteStore(state => state.isMicMuted);
+  const setMicMuted = useMuteStore(state => state.setMicMuted);
   const isMutedRef = useRef(isMuted);
 
   const setMicFft = useFFTStore(state => state.setMicFft);
@@ -113,16 +115,17 @@ export const useMicrophone = (props: MicrophoneProps) => {
       recorder.current = null;
       streamRef.current?.getTracks().forEach((track) => track.stop());
 
-      setIsMuted(false);
+      setMicMuted(false);
     } catch (e) {
       const message = e instanceof Error ? e.message : 'Unknown error';
       onError(`Error stopping microphone: ${message}`);
       console.log(e);
       void true;
     }
-  }, [dataHandler, onError, streamRef]);
+  }, [dataHandler, onError, streamRef, setMicMuted]);
 
-  const mute = useCallback(() => {
+  // Internal mute function that actually controls the mic
+  const muteInternal = useCallback(() => {
     if (currentAnalyzer.current) {
       currentAnalyzer.current.stop();
       setMicFft(generateEmptyFft());
@@ -133,10 +136,10 @@ export const useMicrophone = (props: MicrophoneProps) => {
     });
 
     isMutedRef.current = true;
-    setIsMuted(true);
-  }, [streamRef]);
+  }, [streamRef, setMicFft, setMicMuted]);
 
-  const unmute = useCallback(() => {
+  // Internal unmute function that actually controls the mic
+  const unmuteInternal = useCallback(() => {
     if (currentAnalyzer.current) {
       currentAnalyzer.current.start();
     }
@@ -146,8 +149,7 @@ export const useMicrophone = (props: MicrophoneProps) => {
     });
 
     isMutedRef.current = false;
-    setIsMuted(false);
-  }, [streamRef]);
+  }, [streamRef, setMicMuted]);
 
   useEffect(() => {
     return () => {
@@ -178,11 +180,19 @@ export const useMicrophone = (props: MicrophoneProps) => {
     }
   }, [onError]);
 
+  // Effect to handle mute state changes from store
+  useEffect(() => {
+    if (isMuted !== isMutedRef.current) {
+      if (isMuted) {
+        muteInternal();
+      } else {
+        unmuteInternal();
+      }
+    }
+  }, [isMuted, muteInternal, unmuteInternal]);
+
   return {
     start,
     stop,
-    mute,
-    unmute,
-    isMuted,
   };
 };
