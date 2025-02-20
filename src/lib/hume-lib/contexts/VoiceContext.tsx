@@ -29,14 +29,11 @@ export type VoiceStatus =
 export interface VoiceContextType {
   connect: () => Promise<void>;
   disconnect: () => void;
-  isAudioMuted: boolean;
   isPlaying: boolean;
   messages: (JSONMessage | ConnectionMessage)[];
   lastVoiceMessage: AssistantTranscriptMessage | null;
   lastUserMessage: UserTranscriptMessage | null;
   clearMessages: () => void;
-  mute: () => void;
-  unmute: () => void;
   muteAudio: () => void;
   unmuteAudio: () => void;
   readyState: VoiceReadyState;

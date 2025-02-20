@@ -5,6 +5,7 @@ import { convertLinearFrequenciesToBark } from '../convertFrequencyScale';
 import { generateEmptyFft } from '../generateEmptyFft';
 import type { AudioOutputMessage } from '../models/messages';
 import { useFFTStore } from '@/lib/audio/stores/fftStore';
+import { useMuteStore } from '@/lib/audio/stores/muteStore';
 
 export const useSoundPlayer = (props: {
   onError: (message: string) => void;
@@ -12,7 +13,8 @@ export const useSoundPlayer = (props: {
   onStopAudio: (id: string) => void;
 }) => {
   const [isPlaying, setIsPlaying] = useState(false);
-  const [isAudioMuted, setIsAudioMuted] = useState(false);
+  const isAudioMuted = useMuteStore(state => state.isAudioMuted);
+  const setAudioMuted = useMuteStore(state => state.setAudioMuted);
   const setPlayerFft = useFFTStore(state => state.setPlayerFft);
 
   const audioContext = useRef<AudioContext | null>(null);
@@ -171,7 +173,7 @@ export const useSoundPlayer = (props: {
     isInitialized.current = false;
     isProcessing.current = false;
     setIsPlaying(false);
-    setIsAudioMuted(false);
+    setAudioMuted(false);
 
     if (frequencyDataIntervalId.current) {
       window.clearInterval(frequencyDataIntervalId.current);
@@ -204,7 +206,7 @@ export const useSoundPlayer = (props: {
     clipQueue.current = [];
     setQueueLength(0);
     setPlayerFft(generateEmptyFft());
-  }, []);
+  }, [setAudioMuted, setPlayerFft]);
 
   const clearQueue = useCallback(() => {
     if (currentlyPlayingAudioBuffer.current) {
@@ -217,21 +219,21 @@ export const useSoundPlayer = (props: {
     isProcessing.current = false;
     setIsPlaying(false);
     setPlayerFft(generateEmptyFft());
-  }, []);
+  }, [setPlayerFft]);
 
   const muteAudio = useCallback(() => {
     if (gainNode.current && audioContext.current) {
       gainNode.current.gain.setValueAtTime(0, audioContext.current.currentTime);
-      setIsAudioMuted(true);
+      setAudioMuted(true);
     }
-  }, []);
+  }, [setAudioMuted]);
 
   const unmuteAudio = useCallback(() => {
     if (gainNode.current && audioContext.current) {
       gainNode.current.gain.setValueAtTime(1, audioContext.current.currentTime);
-      setIsAudioMuted(false);
+      setAudioMuted(false);
     }
-  }, []);
+  }, [setAudioMuted]);
 
   return {
     addToQueue,
