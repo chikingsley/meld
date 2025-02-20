@@ -12,16 +12,19 @@ import { useVoice } from "@/lib/hume-lib/VoiceProvider"
 
 interface BottomControlsProps {
   sessionId?: string;
+  hasMessages?: boolean;
 }
 
-const BottomControls = React.memo(({ sessionId }: BottomControlsProps) => {
+const BottomControls = React.memo(({ sessionId, hasMessages }: BottomControlsProps) => {
   // Split state subscriptions for better performance
   const { status, connect, disconnect, sendSessionSettings } = useVoice();
   const [isTransitioning, setIsTransitioning] = React.useState(false)
+  const [isPostCall, setIsPostCall] = React.useState(false)
   const isMobile = useIsMobile()
 
   const handleEndCall = React.useCallback(async () => {
     setIsTransitioning(true)
+    setIsPostCall(true)
     try {
       await disconnect()
     } catch (error) {
@@ -30,6 +33,13 @@ const BottomControls = React.memo(({ sessionId }: BottomControlsProps) => {
       setIsTransitioning(false)
     }
   }, [disconnect])
+
+  // Reset post-call state when changing sessions
+  React.useEffect(() => {
+    if (sessionId) {
+      setIsPostCall(false)
+    }
+  }, [sessionId])
 
   const handleStartCall = async () => {
     console.log('Starting call with sessionId:', sessionId);
@@ -75,11 +85,14 @@ const BottomControls = React.memo(({ sessionId }: BottomControlsProps) => {
       )}>
         <div className="w-full max-w-2xl px-4">
           <AnimatePresence mode="wait" initial={false}>
-            {showControls ? (
+            {(showControls || (status.value === "disconnected" && !isPostCall && !hasMessages)) ? (
               <motion.div
+                key="control-container"
                 layoutId="control-box"
-                data-component="controls-container"
-                className="w-full max-w-sm mx-auto"
+                className={cn(
+                  "w-full",
+                  showControls ? "max-w-sm mx-auto" : ""
+                )}
                 initial={{ y: 100, opacity: 0 }}
                 animate={{ y: 0, opacity: 1 }}
                 exit={{ y: 100, opacity: 0 }}
@@ -90,30 +103,13 @@ const BottomControls = React.memo(({ sessionId }: BottomControlsProps) => {
                   layout: { duration: 0.2 }
                 }}
               >
-                <Controls 
-                  onEndCall={handleEndCall} 
-                />
+                {showControls ? (
+                  <Controls onEndCall={handleEndCall} />
+                ) : (
+                  <ChatInputForm onStartCall={handleStartCall} />
+                )}
               </motion.div>
-            ) : (
-              <motion.div
-                layoutId="control-box"
-                data-component="chat-input-container"
-                className="w-full"
-                initial={{ y: 100, opacity: 0 }}
-                animate={{ y: 0, opacity: 1 }}
-                exit={{ y: 100, opacity: 0 }}
-                transition={{ 
-                  type: "spring",
-                  damping: 25,
-                  stiffness: 200,
-                  layout: { duration: 0.2 }
-                }}
-              >
-                <ChatInputForm 
-                  onStartCall={handleStartCall}
-                />
-              </motion.div>
-            )}
+            ) : null}
           </AnimatePresence>
         </div>
       </div>

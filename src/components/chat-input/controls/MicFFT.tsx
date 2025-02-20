@@ -5,14 +5,15 @@ import { AutoSizer } from "react-virtualized";
 
 const renderFFT = (ctx: CanvasRenderingContext2D, fft: number[], width: number, height: number) => {
   ctx.clearRect(0, 0, width, height);
-  ctx.fillStyle = "currentColor";
+  const isDark = document.documentElement.classList.contains("dark");
+  ctx.fillStyle = isDark ? "rgba(255, 255, 255, 0.8)" : "rgba(0, 0, 0, 0.8)";
 
   const barCount = 24;
   const barWidth = 2;
   const spacing = (width - barCount * barWidth) / (barCount + 1);
 
   for (let i = 0; i < barCount; i++) {
-    const value = (fft[i] ?? 0) / 4;
+    const value = (fft[i] ?? 0) / 1.5;
     const h = Math.min(Math.max(height * value, 2), height);
     const yOffset = height * 0.5 - h * 0.5;
 
@@ -40,6 +41,26 @@ const MicFFT = React.memo(({ fft, className }: { fft: number[]; className?: stri
 
     renderFFT(ctx, fft, sizeRef.current.width, sizeRef.current.height);
   }, [fft, sizeRef.current.width, sizeRef.current.height]);
+
+  // Re-render when theme changes
+  useEffect(() => {
+    const observer = new MutationObserver(() => {
+      const canvas = canvasRef.current;
+      if (!canvas) return;
+
+      const ctx = canvas.getContext("2d");
+      if (!ctx) return;
+
+      renderFFT(ctx, fft, sizeRef.current.width, sizeRef.current.height);
+    });
+
+    observer.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ["class"]
+    });
+
+    return () => observer.disconnect();
+  }, [fft]);
 
   return (
     <div className={"relative size-full"}>

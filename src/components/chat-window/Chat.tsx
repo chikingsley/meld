@@ -141,6 +141,7 @@ export default function ClientComponent({ sessionId }: ClientComponentProps) {
         <Messages ref={ref} messages={displayMessages} />
         <BottomControls 
           sessionId={sessionId}
+          hasMessages={displayMessages.length > 0}
         />
     </div>
   );
