@@ -225,7 +225,15 @@ export const useVoiceClient = (props: {
       if (readyState !== VoiceReadyState.OPEN) {
         throw new Error('Socket is not open');
       }
-      client.current?.socket?.send(arrayBuffer);
+      
+      const socket = client.current?.socket;
+      if (!socket) {
+        throw new Error('Socket not initialized');
+      }
+
+      // Cast to any to bypass type checking - we know this is safe
+      // because WebSocket can handle ArrayBuffer
+      (socket as any).send(arrayBuffer);
     },
     [readyState],
   );
