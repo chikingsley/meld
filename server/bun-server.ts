@@ -7,6 +7,7 @@ declare global {
 
 import { PrismaClient } from "@prisma/client"
 import handleWebhook from './api/clerk/clerk-webhooks'
+import { POST as handleChatCompletions } from './api/chat/clm-sse-server'
 // import handleGetMe from './api/user/routes'
 
 const prisma = new PrismaClient({
@@ -67,7 +68,7 @@ const server = Bun.serve({
     // Chat completions
     if (url.pathname === '/api/chat/completions' && req.method === 'POST') {
       console.log('Chat completions request received');
-      return Response.json({ success: true }, { headers: corsHeaders });
+      return handleChatCompletions(req);
     }
 
     // User endpoints

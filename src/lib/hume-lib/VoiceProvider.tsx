@@ -471,20 +471,20 @@ export const VoiceProvider: FC<VoiceProviderProps> = ({
     if (
       error !== null &&
       status.value !== 'error' &&
-      status.value !== 'disconnected'
+      status.value !== 'disconnected' &&
+      status.value !== 'disconnecting'
     ) {
       setStatus({ value: 'error', reason: error.message });
-      disconnectFromVoice().then(() => {
-        // Only reset error after cleanup is complete
-        if (error.type !== 'mic_error') { // Don't auto-reset mic permission errors
-          setTimeout(() => {
-            updateError(null);
-            setStatus({ value: 'disconnected' });
-          }, 1000); // Give UI time to show error
-        }
-      });
+      if (error.type !== 'mic_error') { // Don't auto-reset mic permission errors
+        // Set a timeout to clear the error
+        const timeoutId = setTimeout(() => {
+          updateError(null);
+          setStatus({ value: 'disconnected' });
+        }, 1000); // Give UI time to show error
+        return () => clearTimeout(timeoutId);
+      }
     }
-  }, [status.value, disconnectFromVoice, error]);
+  }, [error, status.value]);
 
   useEffect(() => {
     // disconnect from socket when the voice provider component unmounts

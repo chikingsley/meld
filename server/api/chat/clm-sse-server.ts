@@ -1,8 +1,8 @@
 import OpenAI from 'openai';
-import { BASE_PROMPT } from '@/prompts/base-prompt';
-import { ContextTracker } from 'server/api/chat/hume-context-tracker';
-import { ToolCall, ToolCallResult, tools, handleWeather, handleUserProfile } from '@/utils/tool-types';
-import { config, getBaseUrl, getApiKey, getModelName } from 'server/api/chat/llm-model-choice-helper';
+import { BASE_PROMPT } from './prompts/base-prompt';
+import { ContextTracker } from './hume-context-tracker';
+import { ToolCall, ToolCallResult, tools, handleWeather, handleUserProfile } from './tool-types';
+import { config, getBaseUrl, getApiKey, getModelName } from './llm-model-choice-helper';
 
 const openai = new OpenAI({
   apiKey: getApiKey(config.USE_OPENROUTER),
@@ -54,7 +54,14 @@ async function handleToolCalls(toolCalls: ToolCall[]): Promise<ToolCallResult[]>
       
       results.push(result);
     } catch (error) {
-      console.error(`Error processing ${toolCall.function.name}:`, error);
+      console.error(`❌ Error processing tool call ${toolCall.function.name}:`, {
+        name: error instanceof Error ? error.name : 'UnknownError',
+        message: error instanceof Error ? error.message : 'An unknown error occurred',
+        toolCall: {
+          name: toolCall.function.name,
+          args: toolCall.function.arguments?.substring(0, 100) + '...'
+        }
+      });
     }
   }
   
@@ -62,21 +69,31 @@ async function handleToolCalls(toolCalls: ToolCall[]): Promise<ToolCallResult[]>
 }
 
 export async function POST(req: Request) {
-  // console.log('🚀 POST request received at /api/chat/completions');
-  // console.log('📨 Headers:', Object.fromEntries(req.headers.entries()));
+  console.log('🚀 POST request received at /api/chat/completions');
+  console.log('📨 Headers:', Object.fromEntries(req.headers.entries()));
+  console.log('🌐 URL:', req.url);
   
   const encoder = new TextEncoder();
   const stream = new TransformStream();
   const writer = stream.writable.getWriter();
+  
+  console.log('💫 Stream initialized');
 
   try {
-    // Only check authentication if API_KEY is set
+    // Authentication check
     const authHeader = req.headers.get('Authorization');
-    if (authHeader) {  // Only validate if auth header exists
-      // console.log('🔑 Checking authentication');
+    console.log('🔑 Auth header present:', !!authHeader);
+    
+    if (authHeader) {
+      console.log('🔍 Validating auth format...');
       const token = authHeader.split(' ')[1];
+      
       if (!authHeader.startsWith('Bearer ') || !token) {
-        console.error('❌ Authentication failed - invalid format');
+        console.error('❌ Authentication failed:', {
+          hasBearer: authHeader.startsWith('Bearer '),
+          hasToken: !!token,
+          authHeader: authHeader.substring(0, 20) + '...' // Log first 20 chars for debugging
+        });
         return new Response(
           JSON.stringify({ error: 'Invalid authorization format' }), 
           { 
@@ -88,12 +105,19 @@ export async function POST(req: Request) {
           }
         );
       }
-      // Token is present and in correct format
       console.log('✅ Authentication successful');
+      console.log('🎫 Token format valid:', token.substring(0, 10) + '...');
     }
 
     const body = await req.json();
-    // console.log('📦 Request body:', body);
+    console.log('📦 Request body:', {
+      messageCount: body.messages?.length || 0,
+      lastMessage: body.messages?.[body.messages?.length - 1]?.content?.substring(0, 100) + '...',
+      modelConfig: {
+        model: getModelName(config.USE_OPENROUTER),
+        useOpenRouter: config.USE_OPENROUTER
+      }
+    });
 
     // Get custom session ID if provided
     const customSessionId = new URL(req.url).searchParams.get('custom_session_id');
@@ -122,6 +146,9 @@ export async function POST(req: Request) {
 
     // console.log('Processing messages:', messages);
     // console.log('Prosody data:', prosodyData);
+    
+    console.log('🤖 Starting chat completion with model:', getModelName(config.USE_OPENROUTER));
+    console.log('📝 Using messages:', messages.length, 'messages in context');
     
     // Start OpenAI stream with configured model
     const stream2 = await openai.chat.completions.create({

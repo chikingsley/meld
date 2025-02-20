@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { MODEL_LIMITS, SupportedModel } from 'server/api/chat/hume-context-tracker';
+import { MODEL_LIMITS, SupportedModel } from './hume-context-tracker';
 
 // Helper function to validate model
 function validateModel(model: string): model is SupportedModel {
