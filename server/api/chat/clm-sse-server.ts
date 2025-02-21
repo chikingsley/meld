@@ -1,7 +1,8 @@
 import OpenAI from 'openai';
 import { BASE_PROMPT } from './prompts/base-prompt';
 import { ContextTracker } from './hume-context-tracker';
-import { ToolCall, ToolCallResult, tools, handleWeather, handleUserProfile } from './tool-types';
+import { toolRegistry } from '../../tools/tool-registry';
+import type { ToolCall, ToolCallResult } from '../../tools/base/BaseTool';
 import { config, getBaseUrl, getApiKey, getModelName } from './llm-model-choice-helper';
 
 const openai = new OpenAI({
@@ -28,30 +29,14 @@ function setupSSEResponse(stream: TransformStream) {
   });
 }
 
-// Update the handleToolCalls function to be more robust
+// Process tool calls using the registry
 async function handleToolCalls(toolCalls: ToolCall[]): Promise<ToolCallResult[]> {
   const results: ToolCallResult[] = [];
   
   for (const toolCall of toolCalls) {
     try {
-      let result: ToolCallResult;
-      
-      switch (toolCall.function.name) {
-        case "get_current_weather":
-          result = await handleWeather(toolCall);
-          console.log('Successfully processed weather request');
-          break;
-          
-        case "update_user_profile":
-          result = await handleUserProfile(toolCall);
-          console.log('Successfully updated user profile');
-          break;
-          
-        default:
-          console.warn('Unknown tool called:', toolCall.function.name);
-          continue;
-      }
-      
+      const result = await toolRegistry.executeTool(toolCall);
+      console.log(`Successfully processed ${toolCall.function.name} request`);
       results.push(result);
     } catch (error) {
       console.error(`❌ Error processing tool call ${toolCall.function.name}:`, {
@@ -156,7 +141,7 @@ export async function POST(req: Request) {
       messages: contextTracker.shouldTruncate(messages) ? 
         contextTracker.truncateMessages(messages) : 
         messages,
-      tools: tools,
+      tools: toolRegistry.getTools(),
       tool_choice: 'auto',
       stream: true,
       ...(config.USE_OPENROUTER && {

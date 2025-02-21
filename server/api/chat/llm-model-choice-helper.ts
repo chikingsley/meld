@@ -3,7 +3,14 @@ import { MODEL_LIMITS, SupportedModel } from './hume-context-tracker';
 
 // Helper function to validate model
 function validateModel(model: string): model is SupportedModel {
-  return Object.keys(MODEL_LIMITS).includes(model);
+  // Check direct format (e.g. gpt-4o)
+  if (Object.keys(MODEL_LIMITS).includes(model)) {
+    return true;
+  }
+  
+  // Check namespaced format (e.g. openai/gpt-4o)
+  const withoutNamespace = model.split('/').pop() || '';
+  return Object.keys(MODEL_LIMITS).includes(withoutNamespace);
 }
 
 // Define the schema for our environment variables
