@@ -1,5 +1,5 @@
 // server/api/database/user-handlers.ts
-import { prisma } from '../../src/db/prisma';
+import { prisma } from 'src/db/prisma';
 
 export const userHandlers = {
   async getUser(id: string) {

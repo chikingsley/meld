@@ -38,7 +38,7 @@ export abstract class BaseTool {
     };
   }
 
-  protected validateArgs(args: any): boolean {
+  protected validateArgs(_args: any): boolean {
     // Basic validation - can be extended in specific tools
     return true;
   }
