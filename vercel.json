@@ -2,11 +2,6 @@
   "buildCommand": "bunx --bun vite build",
   "outputDirectory": "dist",
   "framework": "vite",
-  "functions": {
-    "api/**/*.ts": {
-      "excludeFiles": "!(**/route.ts)"
-    }
-  },
   "rewrites": [
     {
       "source": "/api/(.*)",
