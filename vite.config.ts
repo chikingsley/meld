@@ -1,7 +1,5 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
-import terminal from 'vite-plugin-terminal'
-import autoImport from 'unplugin-auto-import/vite'
 import path from 'path';
 
 const ReactCompilerConfig = {
@@ -40,13 +38,6 @@ export default defineConfig({
         }, 
         jsxRuntime: 'automatic', 
       }),
-    terminal({ 
-      console: 'terminal',
-      output: ['terminal', 'console'] 
-    }),
-    autoImport({
-      imports: [],
-    })
   ],
   server: {
     open: false,
