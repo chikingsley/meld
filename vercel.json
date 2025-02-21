@@ -13,7 +13,7 @@
       "destination": "/api/$1"
     },
     {
-      "source": "/((?!api/|sign-in|sign-up).*).*",
+      "source": "/((?!api/.*).*)",
       "destination": "/index.html"
     }
   ],
