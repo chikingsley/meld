@@ -23,9 +23,6 @@ export default defineConfig({
       '@utils': path.resolve(__dirname, './src/utils'),
     },
   },
-  optimizeDeps: {
-    exclude: ['@electric-sql/pglite']
-  },
   build: {
     target: 'esnext',
     outDir: 'dist',
