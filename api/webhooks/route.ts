@@ -1,6 +1,6 @@
-// server/api/clerk/clerk-webhooks.ts
+// api/webhooks/route.ts
 import { Webhook } from 'svix';
-import { createBasicHumeConfig, deleteHumeConfig } from '@/lib/webhooks/hume-auth';
+import { createHumeConfig, deleteHumeConfig } from '@/lib/webhooks/hume-auth';
 import { createClerkClient } from '@clerk/backend';
 import { userHandlers } from '@/lib/webhooks/db-handler';
 
@@ -51,7 +51,7 @@ async function handleUserCreated(event: WebhookEvent) {
 
   try {
     // Create basic Hume config
-    const config = await createBasicHumeConfig(email);
+    const config = await createHumeConfig(email);
     
     // Update user metadata with config ID
     await clerkClient.users.updateUser(id, {
