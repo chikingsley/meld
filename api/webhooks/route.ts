@@ -121,7 +121,7 @@ async function handleUserDeleted(event: WebhookEvent) {
   }
 }
 
-export default async function handleWebhook(req: Request) {
+export async function POST(req: Request) {
   // Always log this regardless of debug setting
   console.log('Webhook received:', {
     method: req.method,
