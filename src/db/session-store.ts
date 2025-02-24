@@ -97,7 +97,8 @@ export function useSession() {
   const updateCurrentSession = (sessionId: string) => {
     // Get last message for title/preview
     const lastMessage = messages[messages.length - 1];
-    if (lastMessage && ('message' in lastMessage)) {
+    if (lastMessage && typeof lastMessage === 'object' && 'message' in lastMessage && 
+        typeof lastMessage.message === 'object' && lastMessage.message && 'content' in lastMessage.message) {
       sessionStore.updateSession(sessionId, {
         lastMessage: lastMessage.message.content
       });

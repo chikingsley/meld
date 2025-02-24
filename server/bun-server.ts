@@ -5,18 +5,19 @@ declare global {
   var requestCount: number;
 }
 
-import { PrismaClient } from "@prisma/client"
+// import { PrismaClient } from "@prisma/client"
 import handleWebhook from './api/clerk/clerk-webhooks'
+import handleWebhookEvents from './api/clerk/webhook-events'
 import { POST as handleChatCompletions } from './api/chat/clm-sse-server'
 // import handleGetMe from './api/user/routes'
 
-const prisma = new PrismaClient({
-  datasources: {
-    db: {
-      url: process.env.DATABASE_URL
-    }
-  }
-});
+// const prisma = new PrismaClient({
+//   datasources: {
+//     db: {
+//       url: process.env.DATABASE_URL
+//     }
+//   }
+// });
 
 const port = process.env.SERVER_PORT || 3001;
 
@@ -47,14 +48,14 @@ const server = Bun.serve({
 
     // Health check
     if (url.pathname === '/api/health') {
-      const dbHealth = await prisma.$queryRaw`SELECT 1`
-      .then(() => 'connected')
-      .catch(() => 'disconnected');
-    
-    return Response.json({ 
-      status: 'ok',
-      database: dbHealth 
-    }, { headers: corsHeaders });
+      console.log(`[${new Date().toISOString()}] Health check request`);
+      return Response.json({ 
+        status: 'ok',
+        server: 'healthy'
+      }, { 
+        status: 200,
+        headers: corsHeaders 
+      });
     }
 
     // Clerk webhook
@@ -69,6 +70,16 @@ const server = Bun.serve({
     if (url.pathname === '/api/chat/completions' && req.method === 'POST') {
       console.log('Chat completions request received');
       return handleChatCompletions(req);
+    }
+
+    // Webhook events endpoint
+    if (url.pathname === '/api/clerk/webhook-events' && req.method === 'GET') {
+      const response = await handleWebhookEvents(req);
+      // Add CORS headers to SSE response
+      Object.entries(corsHeaders).forEach(([key, value]) => {
+        response.headers.set(key, value);
+      });
+      return response;
     }
 
     // User endpoints

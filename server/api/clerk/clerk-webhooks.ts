@@ -1,8 +1,9 @@
 // server/api/clerk/clerk-webhooks.ts
 import { Webhook } from 'svix';
-import { createBasicHumeConfig, deleteHumeConfig } from './hume-auth';
+import { createHumeConfig, deleteHumeConfig } from './hume-auth';
 import { createClerkClient } from '@clerk/backend';
 import { userHandlers } from '../database/user-handlers';
+import { emitUserEvent } from './webhook-events';
 
 const clerkClient = createClerkClient({ 
   secretKey: process.env.CLERK_SECRET_KEY 
@@ -51,7 +52,7 @@ async function handleUserCreated(event: WebhookEvent) {
 
   try {
     // Create basic Hume config
-    const config = await createBasicHumeConfig(email);
+    const config = await createHumeConfig(email);
     
     // Update user metadata with config ID
     await clerkClient.users.updateUser(id, {
@@ -69,6 +70,11 @@ async function handleUserCreated(event: WebhookEvent) {
       last_name,
       configId: config.id
     });
+
+    // Emit event with configId
+    emitUserEvent(id, { configId: config.id });
+
+    return { configId: config.id };
 
   } catch (error) {
     console.error('Error in user creation:', error);
