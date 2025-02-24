@@ -109,7 +109,6 @@ export default function ChatSession() {
       // Keep track of all messages and final state
       let currentAssistantMessage = assistantMessage;
       let finalContent = '';
-      let finalScores = {};
 
       while (true) {
         const { done, value } = await reader.read();
@@ -135,7 +134,6 @@ export default function ChatSession() {
                 const content = data.type === "content" ? data.value : data.choices[0].delta.content;
                 const emotionScores = data.models?.prosody?.scores || {};
                 finalContent += content;
-                finalScores = emotionScores;
 
                 currentAssistantMessage = {
                   ...currentAssistantMessage,

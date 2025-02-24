@@ -53,6 +53,12 @@ export async function handleStoreEmbedding(req: Request) {
     const [embedding] = await generateEmbeddings([content]);
     const vectorData = JSON.stringify(embedding);
     
+    const messageVector = await prisma.messageVector.create({
+      data: {
+        messageId: messageId,
+      }
+    });
+
     // Use raw SQL to insert vector data
     await prisma.$executeRaw`
       INSERT INTO message_vectors (message_id, embedding)
@@ -62,13 +68,20 @@ export async function handleStoreEmbedding(req: Request) {
     `;
 
     // Fetch the inserted/updated vector
-    const vector = await prisma.$queryRaw`
-      SELECT message_id, embedding::text
+    const [vector] = await prisma.$queryRaw<{ message_id: string; embedding: string }[]>`
+      SELECT message_id, embedding::text as embedding
       FROM message_vectors
       WHERE message_id = ${messageId}::uuid
     `;
 
-    return Response.json(vector);
+    if (!vector) {
+      throw new Error('Vector not found after insertion');
+    }
+
+    return Response.json({
+      message_id: vector.message_id,
+      embedding: vector.embedding
+    });
   } catch (error) {
     console.error('Error in handleStoreEmbedding:', error);
     return new Response('Internal Server Error', { status: 500 });
