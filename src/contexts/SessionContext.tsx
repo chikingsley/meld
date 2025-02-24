@@ -142,9 +142,13 @@ export const SessionProvider: React.FC<{ children: ReactNode }> = ({
       setSessions(prev => prev.map(session => {
         if (session.id !== sessionId) return session;
         
+        // Get the stored session to ensure we have all required fields
+        const storedSession = sessionStore.getSessions().find(s => s.id === sessionId);
+        if (!storedSession) return session;
+        
         // Create complete session object for formatting
         const updatedSession: StoredSession = {
-          ...session,
+          ...storedSession,
           ...updatesWithTimestamp,
         };
         

@@ -20,13 +20,6 @@
     "noUnusedParameters": true,
     "noFallthroughCasesInSwitch": true,
 
-    /* Terminal plugin */
-    "types": [
-      "vite-plugin-terminal/client",
-      "bun",
-      "vite/client",
-    ],
-
     /* Path aliases */
     "baseUrl": ".",
     "paths": {
