@@ -1,7 +1,6 @@
 import { useUser, useAuth } from '@clerk/clerk-react';
 import { useEffect } from 'react';
 import { useUserStore } from '@/stores/useUserStore';
-import { sessionPool } from '@/db/session-pool';
 
 export function useUserConfig() {
   const { user, isLoaded: userLoaded } = useUser();
@@ -25,10 +24,7 @@ export function useUserConfig() {
       // Set userId from Clerk
       console.log('[useUserConfig] Setting userId:', user.id);
       setUserId(user.id);
-      
-      // Initialize session pool
-      sessionPool.setUserId(user.id);
-      
+            
       // Get and set token
       const syncToken = async () => {
         console.log('[useUserConfig] Getting token...');

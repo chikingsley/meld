@@ -25,7 +25,6 @@ export interface StoredSession {
 const SESSIONS_KEY = 'meld_sessions';
 
 import { prismaStore } from './prisma-store';
-import { sessionPool } from './session-pool';
 
 export const sessionStore = {
   getSessions(): StoredSession[] {
@@ -36,8 +35,8 @@ export const sessionStore = {
   async addSession(): Promise<StoredSession> {
     const sessions = this.getSessions();
     
-    // Get session from pool (or create new one if pool empty)
-    const newSession = await sessionPool.getSession();
+    // Create new session
+    const newSession = await prismaStore.addSession(useSessionStore.getState().userId!);
     
     sessions.unshift(newSession);
     localStorage.setItem(SESSIONS_KEY, JSON.stringify(sessions));
