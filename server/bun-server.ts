@@ -46,7 +46,6 @@ const server = Bun.serve({
 
     // Health check
     if (url.pathname === '/api/health') {
-      console.log(`[${new Date().toISOString()}] Health check request`);
       return Response.json({ 
         status: 'ok',
         server: 'healthy'

@@ -54,10 +54,6 @@ async function handleToolCalls(toolCalls: ToolCall[]): Promise<ToolCallResult[]>
 }
 
 export async function POST(req: Request) {
-  console.log('🚀 POST request received at /api/chat/completions');
-  console.log('📨 Headers:', Object.fromEntries(req.headers.entries()));
-  console.log('🌐 URL:', req.url);
-  
   const encoder = new TextEncoder();
   const stream = new TransformStream();
   const writer = stream.writable.getWriter();
@@ -95,14 +91,14 @@ export async function POST(req: Request) {
     }
 
     const body = await req.json();
-    console.log('📦 Request body:', {
-      messageCount: body.messages?.length || 0,
-      lastMessage: body.messages?.[body.messages?.length - 1]?.content?.substring(0, 100) + '...',
-      modelConfig: {
-        model: getModelName(config.USE_OPENROUTER),
-        useOpenRouter: config.USE_OPENROUTER
-      }
-    });
+    // console.log('📦 Request body:', {
+    //   messageCount: body.messages?.length || 0,
+    //   lastMessage: body.messages?.[body.messages?.length - 1]?.content?.substring(0, 100) + '...',
+    //   modelConfig: {
+    //     model: getModelName(config.USE_OPENROUTER),
+    //     useOpenRouter: config.USE_OPENROUTER
+    //   }
+    // });
 
     // Get custom session ID if provided
     const customSessionId = new URL(req.url).searchParams.get('custom_session_id');
@@ -165,21 +161,12 @@ export async function POST(req: Request) {
         for await (const chunk of stream2) {
           if (chunk.choices[0]?.delta?.tool_calls && !toolCallsProcessed) {
             const toolCalls = chunk.choices[0].delta.tool_calls;
-            console.log('Received tool call chunk:', {
-              toolCalls,
-              finish_reason: chunk.choices[0]?.finish_reason
-            });
-            
+       
             for (const toolCall of toolCalls) {
               if (!toolCall.function) continue;
               
               const index = toolCall.index || 0;
               if (!finalToolCalls[index]) {
-                console.log('Initializing new tool call:', {
-                  id: toolCall.id,
-                  index,
-                  function: toolCall.function
-                });
                 finalToolCalls[index] = {
                   id: toolCall.id || '',
                   index,
@@ -191,11 +178,6 @@ export async function POST(req: Request) {
               }
               
               if (toolCall.function.arguments) {
-                console.log('Accumulating arguments for tool call:', {
-                  index,
-                  newArguments: toolCall.function.arguments,
-                  currentArguments: finalToolCalls[index].function.arguments
-                });
                 finalToolCalls[index].function.arguments += toolCall.function.arguments;
               }
 
@@ -206,12 +188,6 @@ export async function POST(req: Request) {
                                 chunk.choices[0]?.delta?.content;
                                 
               if (isComplete) {
-                console.log('Tool calls complete, processing:', {
-                  finish_reason: chunk.choices[0]?.finish_reason,
-                  hasContent: !!chunk.choices[0]?.delta?.content,
-                  accumulatedToolCalls: finalToolCalls
-                });
-                
                 const completedCalls = Object.values(finalToolCalls);
                 if (completedCalls.length > 0) {
                   console.log('Processing completed tool calls:', completedCalls);
@@ -250,10 +226,6 @@ export async function POST(req: Request) {
                     // Process the final response
                     for await (const finalChunk of finalResponse) {
                       if (finalChunk.choices[0]?.delta?.content) {
-                        console.log('Final response chunk:', {
-                          content: finalChunk.choices[0].delta.content,
-                          finish_reason: finalChunk.choices[0]?.finish_reason
-                        });
                         const content = finalChunk.choices[0].delta.content;
                         fullResponse += content;
                         
@@ -300,17 +272,8 @@ export async function POST(req: Request) {
 
           // Handle regular content if no tool calls
           if (chunk.choices[0]?.delta?.content && !toolCallsProcessed) {
-            console.log('Regular content chunk:', {
-              content: chunk.choices[0].delta.content,
-              toolCallsProcessed
-            });
             const content = chunk.choices[0].delta.content;
             fullResponse += content;
-            
-            console.log('LLM response after tool use:', {
-              content,
-              fullResponseSoFar: fullResponse
-            });
             
             // Format response to match Hume's expectations
             const data = {
@@ -341,7 +304,6 @@ export async function POST(req: Request) {
               system_fingerprint: customSessionId // Include session ID if provided
             };
             
-            console.log('Sending chunk:', content);
             await writer.write(
               encoder.encode(`data: ${JSON.stringify(data)}\n\n`)
             );

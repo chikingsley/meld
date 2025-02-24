@@ -4,10 +4,12 @@ import { useUserStore } from '@/stores/useUserStore';
 
 export function useUserConfig() {
   const { user } = useUser();
-  const setConfigId = useUserStore((state) => state.setConfigId);
+  const { setConfigId, setUserId } = useUserStore();
   
   useEffect(() => {
     if (user) {
+      // Set userId from Clerk
+      setUserId(user.id);
       // Get humeConfigId from Clerk's user metadata
       const configId = user.publicMetadata.humeConfigId as string;
       console.log('[useUserConfig] Loading configId from Clerk metadata:', configId);
@@ -30,9 +32,10 @@ export function useUserConfig() {
         return () => eventSource.close();
       }
     } else {
-      console.log('[useUserConfig] No user available, clearing configId');
-      // Clear configId when user is not available
+      console.log('[useUserConfig] No user available, clearing user data');
+      // Clear user data when user is not available
       setConfigId(null);
+      setUserId(null);
     }
-  }, [user, setConfigId]);
+  }, [user, setConfigId, setUserId]);
 }

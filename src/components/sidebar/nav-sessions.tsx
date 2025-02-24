@@ -37,15 +37,20 @@ const NavSessionsComponent = ({
 
   // No real need to useMemo here anymore, SessionItem is already memoized
   const sessionList = React.useMemo(() => (
-    sessions.map((session) => (
-      <SessionItem
-        key={session.id}
-        session={session}
-        onSelect={handleSelect}
-        onDelete={handleDelete}
-        onRename={handleRename}
-      />
-    ))
+    // Filter out any duplicate sessions by id
+    sessions
+      .filter((session, index, self) => 
+        index === self.findIndex((s) => s.id === session.id)
+      )
+      .map((session) => (
+        <SessionItem
+          key={session.id}
+          session={session}
+          onSelect={handleSelect}
+          onDelete={handleDelete}
+          onRename={handleRename}
+        />
+      ))
   ), [sessions, handleSelect, handleDelete, handleRename]);
 
   return (
