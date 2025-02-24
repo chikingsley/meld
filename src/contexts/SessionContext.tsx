@@ -130,15 +130,32 @@ export const SessionProvider: React.FC<{ children: ReactNode }> = ({
     setLoading(true);
     setError(null);
     try {
-      await sessionStore.updateSession(sessionId, updates);
-      // Refetch all sessions after updating
-      await loadSessions();
+      // Ensure timestamp is present in updates
+      const updatesWithTimestamp = {
+        ...updates,
+        timestamp: updates.timestamp || new Date().toISOString()
+      };
+      
+      await sessionStore.updateSession(sessionId, updatesWithTimestamp);
+      
+      // Update locally instead of reloading all sessions
+      setSessions(prev => prev.map(session => {
+        if (session.id !== sessionId) return session;
+        
+        // Create complete session object for formatting
+        const updatedSession: StoredSession = {
+          ...session,
+          ...updatesWithTimestamp,
+        };
+        
+        return formatSession(updatedSession);
+      }));
     } catch (err: any) {
       setError(err.message || 'Failed to update session');
     } finally {
       setLoading(false);
     }
-  }, [loadSessions]);
+  }, []);
 
   // Memoize the sessions array to prevent unnecessary re-renders
   const memoizedSessions = useMemo(() => {
@@ -185,9 +202,21 @@ export const useSessionContext = () => {
 
 // Helper function to format a session (stays outside the hook)
 function formatSession(session: StoredSession): ChatSession {
+  let timestamp = 'Just now';
+  try {
+    if (session.timestamp) {
+      const date = new Date(session.timestamp);
+      if (!isNaN(date.getTime())) {
+        timestamp = formatDistanceToNow(date, { addSuffix: true });
+      }
+    }
+  } catch (err) {
+    console.warn('Failed to format timestamp:', err);
+  }
+
   return {
     id: session.id,
     title: session.title || 'New Chat',
-    timestamp: formatDistanceToNow(new Date(session.timestamp), { addSuffix: true }),
+    timestamp,
   };
 }

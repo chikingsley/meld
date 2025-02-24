@@ -10,7 +10,7 @@ import Settings from '@/pages/Settings';
 import { SessionProvider } from '@/contexts/SessionContext';
 import { useUserConfig } from '@/hooks/useUserConfig';
 import { useUserStore } from '@/stores/useUserStore';
-
+import { Analytics } from '@vercel/analytics/react';
 const clerkPubKey = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY;
 
 // Inner component that uses Clerk hooks
@@ -54,6 +54,7 @@ function App() {
     <BrowserRouter>
       <ClerkProvider publishableKey={clerkPubKey}>
         <AppContent />
+        <Analytics />
       </ClerkProvider>
     </BrowserRouter>
   );
