@@ -33,7 +33,7 @@ export const sessionStore = {
     return stored ? JSON.parse(stored) : [];
   },
 
-  async addSession(userId: string): Promise<StoredSession> {
+  async addSession(): Promise<StoredSession> {
     const sessions = this.getSessions();
     
     // Get session from pool (or create new one if pool empty)
@@ -106,8 +106,8 @@ export const sessionStore = {
 
 // React hook for session management
 export function useSession() {
-  const createSession = useCallback(async (userId: string) => {
-    return await sessionStore.addSession(userId);
+  const createSession = useCallback(async () => {
+    return await sessionStore.addSession();
   }, []);
 
   const updateCurrentSession = useCallback(async (sessionId: string) => {

@@ -70,7 +70,7 @@ export const SessionProvider: React.FC<{ children: ReactNode }> = ({
     setError(null);
     try {
       console.log('[SessionContext] Creating session for user:', user.id);
-      const newSession = await sessionStore.addSession(user.id);
+      const newSession = await sessionStore.addSession();
       const formattedSession = formatSession(newSession);
 
       // Update the sessions state *optimistically* (before navigation)
