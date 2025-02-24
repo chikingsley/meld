@@ -1,5 +1,4 @@
 import OpenAI from 'openai';
-
 import { ContextTracker } from './hume-context-tracker';
 import { toolRegistry } from '../../tools/tool-registry';
 import type { ToolCall, ToolCallResult } from '../../tools/base/BaseTool';
@@ -7,12 +6,12 @@ import { config, getBaseUrl, getApiKey, getModelName } from './llm-model-choice-
 import { analyzeEmotions } from './emotions/hume-text-client';
 
 const openai = new OpenAI({
-  apiKey: getApiKey(config.USE_OPENROUTER),
-  baseURL: getBaseUrl(config.USE_OPENROUTER)
+  apiKey: getApiKey(config.USE_PLATFORM),
+  baseURL: getBaseUrl(config.USE_PLATFORM)
 });
 
 // Use the helper function instead
-const validatedModel = getModelName(config.USE_OPENROUTER);
+const validatedModel = getModelName(config.USE_PLATFORM);
 
 // Helper function to setup SSE response headers
 function setupSSEResponse(stream: TransformStream) {
@@ -33,7 +32,6 @@ function setupSSEResponse(stream: TransformStream) {
 // Process tool calls using the registry
 async function handleToolCalls(toolCalls: ToolCall[]): Promise<ToolCallResult[]> {
   const results: ToolCallResult[] = [];
-  
   for (const toolCall of toolCalls) {
     try {
       const result = await toolRegistry.executeTool(toolCall);
@@ -50,7 +48,6 @@ async function handleToolCalls(toolCalls: ToolCall[]): Promise<ToolCallResult[]>
       });
     }
   }
-  
   return results;
 }
 
@@ -58,7 +55,6 @@ export async function POST(req: Request) {
   const encoder = new TextEncoder();
   const stream = new TransformStream();
   const writer = stream.writable.getWriter();
-
   try {
     // Authentication check
     const authHeader = req.headers.get('Authorization');
@@ -151,18 +147,18 @@ Remember previous conversations and build on shared context. Maintain appropriat
         };
       })];
     
-    console.log('🤖 Starting chat completion with model:', getModelName(config.USE_OPENROUTER));
+    console.log('🤖 Starting chat completion with model:', getModelName(config.USE_PLATFORM));
     
     // Start OpenAI stream with configured model
     const stream2 = await openai.chat.completions.create({
-      model: getModelName(config.USE_OPENROUTER),
+      model: getModelName(config.USE_PLATFORM),
       messages: contextTracker.shouldTruncate(messages) ? 
         contextTracker.truncateMessages(messages) : 
         messages,
       tools: toolRegistry.getTools(),
       tool_choice: 'auto',
       stream: true,
-      ...(config.USE_OPENROUTER && {
+      ...(config.USE_PLATFORM === 'OPEN_ROUTER' && {
         headers: {
           'HTTP-Referer': 'https://github.com/mindpattern',
           'X-Title': 'MindPattern'
@@ -229,18 +225,29 @@ Remember previous conversations and build on shared context. Maintain appropriat
                       }))
                     };
                     
-                    const toolResults = results.map((result: ToolCallResult) => ({
-                      role: "tool",
-                      tool_call_id: result.tool_call_id,
-                      content: result.output
-                    }));
+                    const toolResults = results.map((result: ToolCallResult) => {
+                      // Parse the JSON output to make it more readable for the LLM
+                      const parsedOutput = JSON.parse(result.output);
+                      const formattedOutput = Object.entries(parsedOutput)
+                        .map(([key, value]) => `${key}: ${value}`)
+                        .join('\n');
+
+                      return {
+                        role: "tool",
+                        tool_call_id: result.tool_call_id,
+                        content: formattedOutput
+                      };
+                    });
                     
                     messages.push(toolMessage, ...toolResults);
                     
                     // Make one final call after tool processing
                     const finalResponse = await openai.chat.completions.create({
                       model: validatedModel,
-                      messages: messages,
+                      messages: [
+                        { role: 'system', content: systemPrompt },
+                        ...messages
+                      ],
                       stream: true
                     });
                     

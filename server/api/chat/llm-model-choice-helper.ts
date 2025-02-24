@@ -15,18 +15,19 @@ function validateModel(model: string): model is SupportedModel {
 
 // Define the schema for our environment variables
 const envSchema = z.object({
-  // OpenRouter config
-  USE_OPENROUTER: z.string()
-    .transform(val => val === 'true')
-    .default('false'), // Default to false if not set
+  // Platform config
+  USE_PLATFORM: z.enum(['MISTRAL', 'OPENAI', 'OPEN_ROUTER'])
+    .default('OPENAI'),
 
   // Base URLs
   OPENROUTER_BASE_URL: z.string().default('https://openrouter.ai/api/v1'),
   OPENAI_BASE_URL: z.string().default('https://api.openai.com/v1'),
+  MISTRAL_BASE_URL: z.string().default('https://api.mistral.ai/v1'),
 
   // API Keys
   OPENAI_API_KEY: z.string().min(1, "OpenAI API key is required"),
   OPEN_ROUTER_API_KEY: z.string(),
+  MISTRAL_API_KEY: z.string(),
 
   // Models
   OPENAI_MODEL: z.string()
@@ -35,6 +36,11 @@ const envSchema = z.object({
     }))
     .transform((val) => val as SupportedModel),
   OPEN_ROUTER_MODEL: z.string()
+    .refine(validateModel, (val) => ({
+      message: `Unsupported model: ${val}. Supported models: ${Object.keys(MODEL_LIMITS).join(', ')}`
+    }))
+    .transform((val) => val as SupportedModel),
+  MISTRAL_MODEL: z.string()
     .refine(validateModel, (val) => ({
       message: `Unsupported model: ${val}. Supported models: ${Object.keys(MODEL_LIMITS).join(', ')}`
     }))
@@ -65,16 +71,28 @@ function validateEnv(): EnvConfig {
 export const config = validateEnv();
 
 // Export base URL helper
-export function getBaseUrl(useOpenRouter: boolean | undefined = false): string {
-  return useOpenRouter ? config.OPENROUTER_BASE_URL : config.OPENAI_BASE_URL;
+export function getBaseUrl(platform: string = 'OPENAI'): string {
+  switch (platform) {
+    case 'MISTRAL': return config.MISTRAL_BASE_URL;
+    case 'OPEN_ROUTER': return config.OPENROUTER_BASE_URL;
+    default: return config.OPENAI_BASE_URL;
+  }
 }
 
 // Export API key helper
-export function getApiKey(useOpenRouter: boolean | undefined = false): string {
-  return useOpenRouter ? config.OPEN_ROUTER_API_KEY : config.OPENAI_API_KEY;
+export function getApiKey(platform: string = 'OPENAI'): string {
+  switch (platform) {
+    case 'MISTRAL': return config.MISTRAL_API_KEY;
+    case 'OPEN_ROUTER': return config.OPEN_ROUTER_API_KEY;
+    default: return config.OPENAI_API_KEY;
+  }
 }
 
 // Export model name helper
-export function getModelName(useOpenRouter: boolean | undefined = false): SupportedModel {
-  return useOpenRouter ? config.OPEN_ROUTER_MODEL : config.OPENAI_MODEL;
+export function getModelName(platform: string = 'OPENAI'): SupportedModel {
+  switch (platform) {
+    case 'MISTRAL': return config.MISTRAL_MODEL;
+    case 'OPEN_ROUTER': return config.OPEN_ROUTER_MODEL;
+    default: return config.OPENAI_MODEL;
+  }
 } 

@@ -21,6 +21,8 @@ export const MODEL_LIMITS = {
   'openai/o1-mini': 128000,
   'openai/gpt-4o': 128000,
   'openai/gpt-4o-mini': 128000,
+  'mistral-large-latest': 131000,
+  'mistral-large-2411': 131000
 } as const;
 
 export type SupportedModel = keyof typeof MODEL_LIMITS;

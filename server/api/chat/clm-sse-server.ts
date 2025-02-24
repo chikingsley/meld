@@ -6,12 +6,12 @@ import type { ToolCall, ToolCallResult } from '../../tools/base/BaseTool';
 import { config, getBaseUrl, getApiKey, getModelName } from './llm-model-choice-helper';
 
 const openai = new OpenAI({
-  apiKey: getApiKey(config.USE_OPENROUTER),
-  baseURL: getBaseUrl(config.USE_OPENROUTER)
+  apiKey: getApiKey(config.USE_PLATFORM),
+  baseURL: getBaseUrl(config.USE_PLATFORM)
 });
 
 // Use the helper function instead
-const validatedModel = getModelName(config.USE_OPENROUTER);
+const validatedModel = getModelName(config.USE_PLATFORM);
 
 // Helper function to setup SSE response headers
 function setupSSEResponse(stream: TransformStream) {
@@ -110,18 +110,18 @@ export async function POST(req: Request) {
       };
     })];
     
-    console.log('🤖 Starting chat completion with model:', getModelName(config.USE_OPENROUTER));
+    console.log('🤖 Starting chat completion with model:', getModelName(config.USE_PLATFORM));
     
     // Start OpenAI stream with configured model
     const stream2 = await openai.chat.completions.create({
-      model: getModelName(config.USE_OPENROUTER),
+      model: getModelName(config.USE_PLATFORM),
       messages: contextTracker.shouldTruncate(messages) ? 
         contextTracker.truncateMessages(messages) : 
         messages,
       tools: toolRegistry.getTools(),
       tool_choice: 'auto',
       stream: true,
-      ...(config.USE_OPENROUTER && {
+      ...(config.USE_PLATFORM && {
         headers: {
           'HTTP-Referer': 'https://github.com/mindpattern',
           'X-Title': 'MindPattern'
