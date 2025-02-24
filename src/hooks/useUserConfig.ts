@@ -1,15 +1,42 @@
-import { useUser } from '@clerk/clerk-react';
+import { useUser, useAuth } from '@clerk/clerk-react';
 import { useEffect } from 'react';
 import { useUserStore } from '@/stores/useUserStore';
+import { sessionPool } from '@/db/session-pool';
 
 export function useUserConfig() {
-  const { user } = useUser();
-  const { setConfigId, setUserId } = useUserStore();
+  const { user, isLoaded: userLoaded } = useUser();
+  const { getToken, isLoaded: authLoaded } = useAuth();
+  const { setConfigId, setUserId, setToken } = useUserStore();
   
   useEffect(() => {
+    console.log('[useUserConfig] User state:', {
+      userLoaded,
+      authLoaded,
+      hasUser: !!user,
+      userId: user?.id
+    });
+
+    if (!userLoaded || !authLoaded) {
+      console.log('[useUserConfig] Still loading Clerk user/auth...');
+      return;
+    }
+    
     if (user) {
       // Set userId from Clerk
+      console.log('[useUserConfig] Setting userId:', user.id);
       setUserId(user.id);
+      
+      // Initialize session pool
+      sessionPool.setUserId(user.id);
+      
+      // Get and set token
+      const syncToken = async () => {
+        console.log('[useUserConfig] Getting token...');
+        const token = await getToken();
+        console.log('[useUserConfig] Got token:', !!token);
+        setToken(token);
+      };
+      syncToken();
       // Get humeConfigId from Clerk's user metadata
       const configId = user.publicMetadata.humeConfigId as string;
       console.log('[useUserConfig] Loading configId from Clerk metadata:', configId);
@@ -36,6 +63,7 @@ export function useUserConfig() {
       // Clear user data when user is not available
       setConfigId(null);
       setUserId(null);
+      setToken(null);
     }
-  }, [user, setConfigId, setUserId]);
+  }, [user, getToken, setConfigId, setUserId, setToken, userLoaded, authLoaded]);
 }

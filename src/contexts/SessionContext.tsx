@@ -41,7 +41,7 @@ const SessionContext = createContext<SessionContextState>({
 export const SessionProvider: React.FC<{ children: ReactNode }> = ({
   children,
 }) => {
-  const { user } = useUser();
+  const { user, isLoaded: userLoaded } = useUser();
   const [sessions, setSessions] = useState<ChatSession[]>([]);
   const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -55,10 +55,21 @@ export const SessionProvider: React.FC<{ children: ReactNode }> = ({
 
   // Create a new session (async, uses API)
   const createSession = useCallback(async (): Promise<string | null> => {
-    if (!user?.id) return null;
+    if (!userLoaded) {
+      console.log('[SessionContext] Waiting for Clerk user to load...');
+      return null;
+    }
+    
+    if (!user?.id) {
+      console.log('[SessionContext] No user ID available');
+      setError('You must be logged in to create a session');
+      return null;
+    }
+
     setLoading(true);
     setError(null);
     try {
+      console.log('[SessionContext] Creating session for user:', user.id);
       const newSession = await sessionStore.addSession(user.id);
       const formattedSession = formatSession(newSession);
 
@@ -77,7 +88,7 @@ export const SessionProvider: React.FC<{ children: ReactNode }> = ({
 
   // Load sessions (using useCallback for stability)
   const loadSessions = useCallback(async () => {
-    if (user?.id) {
+    if (userLoaded && user?.id) {
       setLoading(true);
       setError(null);
       try {
@@ -95,7 +106,7 @@ export const SessionProvider: React.FC<{ children: ReactNode }> = ({
         setLoading(false);
       }
     }
-  }, [user?.id, navigate, currentSessionId]);
+  }, [user?.id, navigate, currentSessionId, userLoaded]);
 
 
 
@@ -104,7 +115,7 @@ export const SessionProvider: React.FC<{ children: ReactNode }> = ({
 
   // Handle URL and session synchronization
   useEffect(() => {
-    if (!user?.id) return;
+    if (!userLoaded || !user?.id) return;
 
     const handleUrlSession = async () => {
       // If we have a URL session ID, try to select it
@@ -134,12 +145,12 @@ export const SessionProvider: React.FC<{ children: ReactNode }> = ({
     };
 
     handleUrlSession();
-  }, [urlSessionId, sessions, user?.id, currentSessionId, navigateToSession, createSession]);
+  }, [urlSessionId, sessions, user?.id, currentSessionId, navigateToSession, createSession, userLoaded]);
 
   // Load sessions on mount and whenever the user changes
   useEffect(() => {
     loadSessions();
-  }, [loadSessions]);
+  }, [loadSessions, userLoaded]);
 
 
 

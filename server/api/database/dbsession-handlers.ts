@@ -32,10 +32,14 @@ export async function handleGetSessions(req: Request) {
 
 // Create a new session
 export async function handleCreateSession(req: Request) {
+  console.log('Received create session request:', req.url);
   try {
     const userId = req.headers.get('x-user-id');
+    console.log('Creating session with userId:', userId);
+    
     if (!userId) {
-      return new Response('Unauthorized', { status: 401 });
+      console.error('No userId provided in headers');
+      return new Response('Unauthorized - No userId provided', { status: 401 });
     }
 
     const session = await prisma.session.create({
@@ -45,6 +49,7 @@ export async function handleCreateSession(req: Request) {
       },
       include: { messages: true }
     });
+    console.log('Created session in database:', session);
 
     return Response.json(session);
   } catch (error) {
@@ -55,6 +60,7 @@ export async function handleCreateSession(req: Request) {
 
 // Delete a session
 export async function handleDeleteSession(req: Request) {
+  console.log('Received delete session request:', req.url);
   try {
     const userId = req.headers.get('x-user-id');
     if (!userId) {
@@ -69,9 +75,13 @@ export async function handleDeleteSession(req: Request) {
     }
 
     // Verify session belongs to user
+    console.log('Looking up session in database:', {
+      where: { id: sessionId, userId }
+    });
     const session = await prisma.session.findFirst({
       where: { id: sessionId, userId }
     });
+    console.log('Session lookup result:', session);
 
     if (!session) {
       return new Response('Session not found', { status: 404 });
@@ -90,6 +100,7 @@ export async function handleDeleteSession(req: Request) {
 
 // Get messages for a session
 export async function handleGetMessages(req: Request) {
+  console.log('Received get messages request:', req.url);
   try {
     const userId = req.headers.get('x-user-id');
     if (!userId) {
@@ -98,15 +109,24 @@ export async function handleGetMessages(req: Request) {
 
     const url = new URL(req.url);
     const sessionId = url.pathname.split('/')[3]; // /api/sessions/:id/messages
+    console.log('Looking up session:', {
+      sessionId,
+      userId,
+      pathname: url.pathname
+    });
 
     if (!sessionId) {
       return new Response('Session ID required', { status: 400 });
     }
 
     // Verify session belongs to user
+    console.log('Looking up session in database:', {
+      where: { id: sessionId, userId }
+    });
     const session = await prisma.session.findFirst({
       where: { id: sessionId, userId }
     });
+    console.log('Session lookup result:', session);
 
     if (!session) {
       return new Response('Session not found', { status: 404 });
@@ -127,6 +147,7 @@ export async function handleGetMessages(req: Request) {
 // Add a message to a session
 // Update a session
 export async function handleUpdateSession(req: Request) {
+  console.log('Received update session request:', req.url);
   try {
     const userId = req.headers.get('x-user-id');
     if (!userId) {
@@ -141,9 +162,13 @@ export async function handleUpdateSession(req: Request) {
     }
 
     // Verify session belongs to user
+    console.log('Looking up session in database:', {
+      where: { id: sessionId, userId }
+    });
     const session = await prisma.session.findFirst({
       where: { id: sessionId, userId }
     });
+    console.log('Session lookup result:', session);
 
     if (!session) {
       return new Response('Session not found', { status: 404 });
@@ -167,6 +192,7 @@ export async function handleUpdateSession(req: Request) {
 }
 
 export async function handleAddMessage(req: Request) {
+  console.log('Received message request for URL:', req.url);
   try {
     const userId = req.headers.get('x-user-id');
     if (!userId) {
@@ -175,29 +201,42 @@ export async function handleAddMessage(req: Request) {
 
     const url = new URL(req.url);
     const sessionId = url.pathname.split('/')[3]; // /api/sessions/:id/messages
+    console.log('Looking up session:', {
+      sessionId,
+      userId,
+      pathname: url.pathname
+    });
 
     if (!sessionId) {
       return new Response('Session ID required', { status: 400 });
     }
 
     // Verify session belongs to user
+    console.log('Looking up session in database:', {
+      where: { id: sessionId, userId }
+    });
     const session = await prisma.session.findFirst({
       where: { id: sessionId, userId }
     });
+    console.log('Session lookup result:', session);
 
     if (!session) {
       return new Response('Session not found', { status: 404 });
     }
 
     const body = await req.json();
-    const { role, content, expressions, labels, prosody } = body;
+    console.log('Request body:', body);
+    
+    // Extract fields from message structure
+    const { message, expressions, labels, prosody, timestamp } = body;
+    const { role, content } = message;
 
-    const message = await prisma.message.create({
+    const newMessage = await prisma.message.create({
       data: {
         sessionId,
         role,
         content,
-        timestamp: new Date(),
+        timestamp: timestamp ? new Date(timestamp) : new Date(),
         metadata: {
           expressions,
           labels,
@@ -206,7 +245,9 @@ export async function handleAddMessage(req: Request) {
       }
     });
 
-    return Response.json(message);
+    console.log('Created message:', newMessage);
+
+    return Response.json(newMessage);
   } catch (error) {
     console.error('Error in handleAddMessage:', error);
     return new Response('Internal Server Error', { status: 500 });

@@ -24,23 +24,25 @@ export interface StoredSession {
 
 const SESSIONS_KEY = 'meld_sessions';
 
+import { prismaStore } from './prisma-store';
+import { sessionPool } from './session-pool';
+
 export const sessionStore = {
   getSessions(): StoredSession[] {
     const stored = localStorage.getItem(SESSIONS_KEY);
     return stored ? JSON.parse(stored) : [];
   },
 
-  addSession(userId: string): StoredSession {
+  async addSession(userId: string): Promise<StoredSession> {
     const sessions = this.getSessions();
-    const newSession: StoredSession = {
-      id: crypto.randomUUID(),
-      userId,
-      timestamp: new Date().toISOString(),
-      messages: [],
-    };
+    
+    // Get session from pool (or create new one if pool empty)
+    const newSession = await sessionPool.getSession();
     
     sessions.unshift(newSession);
     localStorage.setItem(SESSIONS_KEY, JSON.stringify(sessions));
+    console.log('🔧 Created new session:', newSession);
+    
     return newSession;
   },
 
@@ -54,17 +56,25 @@ export const sessionStore = {
     }
   },
 
-  deleteSession(sessionId: string) {
+  async deleteSession(sessionId: string) {
     const sessions = this.getSessions();
     const filtered = sessions.filter(s => s.id !== sessionId);
     localStorage.setItem(SESSIONS_KEY, JSON.stringify(filtered));
+    
+    // Also delete from prisma
+    try {
+      await prismaStore.deleteSession(sessionId);
+      console.log('🔧 Deleted session from prisma:', sessionId);
+    } catch (error) {
+      console.error('Failed to delete session from prisma:', error);
+    }
   },
 
   getUserSessions(userId: string): StoredSession[] {
     return this.getSessions().filter(s => s.userId === userId);
   },
 
-  addMessage(sessionId: string, message: StoredMessage) {
+  async addMessage(sessionId: string, message: StoredMessage) {
     const sessions = this.getSessions();
     const index = sessions.findIndex(s => s.id === sessionId);
     if (index !== -1) {
@@ -73,7 +83,14 @@ export const sessionStore = {
       }
       sessions[index].messages.push(message);
       localStorage.setItem(SESSIONS_KEY, JSON.stringify(sessions));
-      console.log('Updated session messages');
+      
+      // Also save to prisma
+      try {
+        await prismaStore.addMessage(sessionId, message);
+        console.log('Updated session messages in both stores');
+      } catch (error) {
+        console.error('Failed to save message to prisma:', error);
+      }
     } else {
       console.error('Session not found:', sessionId);
     }
@@ -89,11 +106,11 @@ export const sessionStore = {
 
 // React hook for session management
 export function useSession() {
-  const createSession = useCallback((userId: string) => {
-    return sessionStore.addSession(userId);
+  const createSession = useCallback(async (userId: string) => {
+    return await sessionStore.addSession(userId);
   }, []);
 
-  const updateCurrentSession = useCallback((sessionId: string) => {
+  const updateCurrentSession = useCallback(async (sessionId: string) => {
     const messages = useSessionStore.getState().messages;
     const lastMessage = messages[messages.length - 1];
     
@@ -109,6 +126,6 @@ export function useSession() {
     createSession,
     updateCurrentSession,
     getUserSessions: sessionStore.getUserSessions,
-    deleteSession: sessionStore.deleteSession
+    deleteSession: async (sessionId: string) => await sessionStore.deleteSession(sessionId)
   };
 }
