@@ -4,6 +4,7 @@ import { Command, LogIn } from "lucide-react"
 import { SignInButton, SignedIn, SignedOut } from "@clerk/clerk-react"
 import { NavSessions } from "@/components/sidebar/nav-sessions"
 import { NavUser } from "@/components/sidebar/nav-user"
+import { TextVoiceSwitch } from "@/components/ui/text-voice-switch"
 import { Sidebar, SidebarContent, SidebarFooter, SidebarHeader, SidebarMenu, SidebarMenuButton, SidebarMenuItem } from "@/components/ui/sidebar"
 import { Button } from "../ui/button"
 import { useNavigate } from "react-router-dom"
@@ -72,6 +73,7 @@ const SidebarInner = ({ className, ...props }: React.ComponentProps<typeof Sideb
       </SidebarContent>
       <SidebarFooter>
         <SignedIn>
+          <TextVoiceSwitch isVoiceMode={useSessionContext().isVoiceMode} onModeChange={useSessionContext().setVoiceMode} />
           <NavUser />
         </SignedIn>
         <SignedOut>

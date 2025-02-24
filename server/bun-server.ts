@@ -14,6 +14,11 @@ import {
   handleUpdateSession
 } from './api/database/dbsession-handlers';
 
+import {
+  handleGenerateEmbeddings,
+  handleStoreEmbedding,
+} from './api/database/embedding-handlers';
+
 // Declare global type
 declare global {
   var requestCount: number;
@@ -107,6 +112,14 @@ const server = Bun.serve({
     // Emotions analysis
     if (url.pathname === '/api/chat/emotions' && req.method === 'POST') {
       return await withCors(await handleEmotions(req));
+    }
+
+    // Embeddings endpoints
+    if (url.pathname === '/api/embeddings/generate' && req.method === 'POST') {
+      return await withCors(await handleGenerateEmbeddings(req));
+    }
+    if (url.pathname === '/api/embeddings/store' && req.method === 'POST') {
+      return await withCors(await handleStoreEmbedding(req));
     }
 
     // Webhook events endpoint

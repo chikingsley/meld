@@ -1,6 +1,8 @@
-// src/pages/Test.tsx
+// src/pages/ChatSession.tsx
 import { useEffect, useRef, useState } from "react";
 import Messages from "@/components/chat-window/Messages";
+import { sessionStore } from '@/db/session-store';
+import { useUserStore } from '@/stores/useUserStore';
 async function analyzeEmotions(text: string) {
   try {
     const response = await fetch('/api/chat/emotions', {
@@ -37,10 +39,12 @@ interface Message {
   receivedAt: Date;
 }
 
-export default function Test() {
+export default function ChatSession() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
+  const [sessionId, setSessionId] = useState<string>("");
   const messagesRef = useRef<HTMLDivElement>(null);
+  const { userId } = useUserStore();
   
   const sendMessage = async (content: string) => {
     try {
@@ -66,8 +70,14 @@ export default function Test() {
       console.log('Sent user message:', userMessage);
       setInput("");
 
+      // Save user message to session
+      await sessionStore.addMessage(sessionId, {
+        message: userMessage.message,
+        timestamp: userMessage.timestamp
+      });
+
       // Send to server with all messages including the new one
-      const response = await fetch("/api/chat/completions", {
+      const response = await fetch(`/api/chat/completions?custom_session_id=${sessionId}`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -173,7 +183,15 @@ export default function Test() {
       // Update messages one last time with emotion analysis
       setMessages(prevMessages => {
         const previousMessages = prevMessages.filter(m => m.id !== currentAssistantMessage.id);
-        return [...previousMessages, currentAssistantMessage];
+        const finalMessages = [...previousMessages, currentAssistantMessage];
+
+        // Save assistant message to session
+        sessionStore.addMessage(sessionId, {
+          message: currentAssistantMessage.message,
+          timestamp: currentAssistantMessage.timestamp
+        });
+
+        return finalMessages;
       });
 
       console.log('Final assistant message:', {
@@ -185,6 +203,17 @@ export default function Test() {
     }
   };
 
+  // Initialize session
+  useEffect(() => {
+    if (userId) {
+      sessionStore.addSession().then(session => {
+        setSessionId(session.id);
+        console.log('Created new session:', session);
+      });
+    }
+  }, [userId]);
+
+  // Scroll to bottom when messages change
   useEffect(() => {
     if (messagesRef.current) {
       messagesRef.current.scrollTop = messagesRef.current.scrollHeight;

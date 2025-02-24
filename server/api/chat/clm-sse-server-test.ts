@@ -1,3 +1,4 @@
+// server/api/chat/clm-sse-server-test.ts
 import OpenAI from 'openai';
 import { ContextTracker } from './hume-context-tracker';
 import { toolRegistry } from '../../tools/tool-registry';

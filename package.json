@@ -44,6 +44,7 @@
     "react-router-dom": "^7.2.0",
     "react-virtualized": "^9.22.6",
     "remeda": "^2.20.2",
+    "styled-components": "^6.1.15",
     "svix": "^1.59.1",
     "tailwind-merge": "^3.0.1",
     "tailwindcss-animate": "^1.0.7",

@@ -100,7 +100,7 @@ export const prismaStore = {
     }
   },
 
-  async addMessage(sessionId: string, message: StoredMessage): Promise<void> {
+  async addMessage(sessionId: string, message: StoredMessage): Promise<Response> {
     try {
       const url = `${API_BASE}/api/sessions/${sessionId}/messages`;
       const headers = await getHeaders();
@@ -121,6 +121,7 @@ export const prismaStore = {
         });
         throw new Error(`Failed to add message: ${response.status} ${errorText}`);
       }
+      return response;
     } catch (error) {
       console.error('[prismaStore] Failed to add message:', error);
       throw error;
@@ -138,4 +139,19 @@ export const prismaStore = {
       throw error;
     }
   },
+
+  async storeEmbedding(messageId: string, content: string): Promise<void> {
+    try {
+      const headers = await getHeaders();
+      const response = await fetch(`${API_BASE}/api/embeddings/store`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ messageId, content })
+      });
+      if (!response.ok) throw new Error('Failed to store embedding');
+    } catch (error) {
+      console.error('[prismaStore] Failed to store embedding:', error);
+      // Don't throw - we don't want to break the chat flow if embedding fails
+    }
+  }
 };

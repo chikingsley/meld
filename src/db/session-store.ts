@@ -84,10 +84,17 @@ export const sessionStore = {
       sessions[index].messages.push(message);
       localStorage.setItem(SESSIONS_KEY, JSON.stringify(sessions));
       
-      // Also save to prisma
+      // Also save to prisma and store embedding
       try {
-        await prismaStore.addMessage(sessionId, message);
+        const response = await prismaStore.addMessage(sessionId, message);
         console.log('Updated session messages in both stores');
+
+        // Get message ID from response
+        const messageData = await response.json();
+        if (messageData?.id) {
+          // Store embedding
+          await prismaStore.storeEmbedding(messageData.id, message.message.content);
+        }
       } catch (error) {
         console.error('Failed to save message to prisma:', error);
       }

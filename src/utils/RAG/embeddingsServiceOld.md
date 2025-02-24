@@ -1,8 +1,6 @@
-export const runtime = 'edge'
-
+// src/utils/RAG/EmbeddingsService.ts
 import { generateEmbeddings } from './jina-embeddings';
 import { rerank } from './reranker';
-import { getDB } from '@/lib/db';
 
 interface Message {
   id: string;
@@ -97,8 +95,6 @@ export class EmbeddingsService {
       console.error('Invalid values in embedding:', { embedding });
       throw new Error('Embedding contains invalid values');
     }
-
-    const db = await getDB();
     
     // First verify the session belongs to the user
     const sessionCheck = await db.query(
@@ -152,8 +148,6 @@ export class EmbeddingsService {
     const embedding = await this.generateEmbedding(content);
     const candidateLimit = useReranker ? SCORING_CONFIG.maxCandidates : limit;
     
-    const db = await getDB();
-
     // First verify the session belongs to the user
     const sessionCheck = await db.query(
       `SELECT id FROM sessions 

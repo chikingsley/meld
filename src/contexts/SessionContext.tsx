@@ -19,6 +19,8 @@ interface SessionContextState {
   currentSessionId: string | null;
   loading: boolean;
   error: string | null;
+  isVoiceMode: boolean;
+  setVoiceMode: (isVoice: boolean) => void;
   createSession: () => Promise<string | null>;
   selectSession: (sessionId: string) => void;
   deleteSession: (sessionId: string) => Promise<void>;
@@ -31,6 +33,8 @@ const SessionContext = createContext<SessionContextState>({
   currentSessionId: null,
   loading: false,
   error: null,
+  isVoiceMode: true,
+  setVoiceMode: () => {},
   createSession: () => Promise.resolve(null),
   selectSession: () => {},
   deleteSession: () => Promise.resolve(),
@@ -46,12 +50,14 @@ export const SessionProvider: React.FC<{ children: ReactNode }> = ({
   const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isVoiceMode, setIsVoiceMode] = useState(true);
   const navigate = useNavigate();
 
   // Stable reference for navigation
   const navigateToSession = useCallback((sessionId: string) => {
-    navigate(`/session/${sessionId}`);
-  }, [navigate]);
+    const basePath = isVoiceMode ? '/session' : '/chat';
+    navigate(`${basePath}/${sessionId}`);
+  }, [navigate, isVoiceMode]);
 
   // Create a new session (async, uses API)
   const createSession = useCallback(async (): Promise<string | null> => {
@@ -230,14 +236,24 @@ export const SessionProvider: React.FC<{ children: ReactNode }> = ({
     updateSession,
   }), [createSession, selectSession, deleteSession, updateSession]);
 
+  // Effect to handle mode changes
+  useEffect(() => {
+    if (currentSessionId) {
+      const basePath = isVoiceMode ? '/session' : '/chat';
+      navigate(`${basePath}/${currentSessionId}`);
+    }
+  }, [isVoiceMode, currentSessionId, navigate]);
+
   // Create the context value, memoizing it to prevent unnecessary re-renders
   const contextValue: SessionContextState = useMemo(() => ({
     sessions: memoizedSessions,
     currentSessionId,
     loading,
     error,
+    isVoiceMode,
+    setVoiceMode: setIsVoiceMode,
     ...memoizedHandlers,
-  }), [memoizedSessions, currentSessionId, loading, error, createSession, selectSession, deleteSession, updateSession]);
+  }), [memoizedSessions, currentSessionId, loading, error, isVoiceMode, memoizedHandlers]);
 
   return (
     <SessionContext.Provider value={contextValue}>
