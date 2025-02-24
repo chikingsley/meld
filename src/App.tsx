@@ -7,7 +7,6 @@ import { getHumeAccessToken } from './utils/getHumeAccessToken';
 import { Layout } from '@/layout';
 import VoiceSession from '@/pages/Session';
 import Settings from '@/pages/Settings';
-import ChatSession from '@/pages/ChatSession';
 import { SessionProvider } from '@/contexts/SessionContext';
 import { useUserConfig } from '@/hooks/useUserConfig';
 import { useUserStore } from '@/stores/useUserStore';
@@ -43,8 +42,6 @@ function AppContent() {
             <Route path="/session" element={<VoiceSession />} />
             <Route path="/session/:sessionId" element={<VoiceSession />} />
             <Route path="/settings" element={<Settings />} />
-            <Route path="/chat" element={<ChatSession />} />
-            <Route path="/chat/:sessionId" element={<ChatSession />} />
           </Route>
         </Routes>
       </SessionProvider>

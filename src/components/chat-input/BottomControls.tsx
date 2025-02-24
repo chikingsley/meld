@@ -1,14 +1,16 @@
 // src/components/chat-input/BottomControls.tsx
-import { AnimatePresence, motion } from "framer-motion"
 import React from "react"
-import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
-import { Button } from "@/components/ui/button"
-import { Menu } from "lucide-react"
-import { useIsMobile } from "@/hooks/use-mobile"
-import { ChatInputForm } from "@/components/chat-input/ChatInputForm"
-import Controls from "@/components/chat-input/controls"
 import { cn } from "@/utils"
+import { Menu } from "lucide-react"
 import { useVoice } from "@/lib/VoiceProvider"
+import { Button } from "@/components/ui/button"
+import { useIsMobile } from "@/hooks/use-mobile"
+import { AnimatePresence, motion } from "framer-motion"
+import Controls from "@/components/chat-input/controls"
+import { ChatInputForm } from "@/components/chat-input/ChatInputForm"
+import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
+import { useSessionContext } from "@/contexts/SessionContext"
+import { useText } from "@/lib/TextProvider"
 
 interface BottomControlsProps {
   sessionId?: string;
@@ -21,6 +23,12 @@ const BottomControls = React.memo(({ sessionId, hasMessages }: BottomControlsPro
   const [isTransitioning, setIsTransitioning] = React.useState(false)
   const [isPostCall, setIsPostCall] = React.useState(false)
   const isMobile = useIsMobile()
+  const { isVoiceMode } = useSessionContext();
+
+  // Use text mode handler from hook
+  const { sendMessage: handleTextSubmit, isStreaming: isTextStreaming } = useText({
+    messageHistoryLimit: 100
+  });
 
   const handleEndCall = React.useCallback(async () => {
     setIsTransitioning(true)
@@ -58,8 +66,8 @@ const BottomControls = React.memo(({ sessionId, hasMessages }: BottomControlsPro
     }
   }
   
-  // Show controls during connection process and connected state
-  const showControls = status.value === "connected" || status.value === "connecting" || isTransitioning
+  // Show voice controls only when in voice mode and connected/connecting
+  const showVoiceControls = isVoiceMode && (status.value === "connected" || status.value === "connecting" || isTransitioning);
   
   return (
     <div className="fixed bottom-10 right-0 w-full flex items-center justify-center bg-gradient-to-t from-background via-background/90 to-background/0">
@@ -85,13 +93,12 @@ const BottomControls = React.memo(({ sessionId, hasMessages }: BottomControlsPro
       )}>
         <div className="w-full max-w-2xl px-4">
           <AnimatePresence mode="wait" initial={false}>
-            {(showControls || (status.value === "disconnected" && !isPostCall && !hasMessages)) ? (
-              <motion.div
+            <motion.div
                 key="control-container"
                 layoutId="control-box"
                 className={cn(
                   "w-full",
-                  showControls ? "max-w-sm mx-auto" : ""
+                  showVoiceControls ? "max-w-sm mx-auto" : ""
                 )}
                 initial={{ y: 100, opacity: 0 }}
                 animate={{ y: 0, opacity: 1 }}
@@ -103,13 +110,14 @@ const BottomControls = React.memo(({ sessionId, hasMessages }: BottomControlsPro
                   layout: { duration: 0.2 }
                 }}
               >
-                {showControls ? (
+                {showVoiceControls ? (
                   <Controls onEndCall={handleEndCall} />
+                ) : isVoiceMode ? (
+                  <ChatInputForm onStartCall={handleStartCall} mode="voice" />
                 ) : (
-                  <ChatInputForm onStartCall={handleStartCall} />
+                  <ChatInputForm onSubmit={handleTextSubmit} mode="text" />
                 )}
               </motion.div>
-            ) : null}
           </AnimatePresence>
         </div>
       </div>

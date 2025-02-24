@@ -76,7 +76,7 @@ export default function ClientComponent({ sessionId: urlSessionId }: ClientCompo
 
   // Save messages to session store
   useEffect(() => {
-    if (urlSessionId && messages.length > 0 && status.value === 'connected') {
+    if (urlSessionId && messages.length > 0) {
       // Get all messages that haven't been saved yet
       const newMessages = messages.filter(msg => {
         // Only save actual messages (not system messages)
@@ -108,7 +108,7 @@ export default function ClientComponent({ sessionId: urlSessionId }: ClientCompo
                 content: msg.message.content || ''
               },
               prosody: prosodyScores,
-              timestamp: new Date().toISOString(),
+              timestamp: msg.timestamp || msg.receivedAt?.toISOString() || new Date().toISOString(),
             };
             sessionStore.addMessage(urlSessionId, storedMessage);
           }

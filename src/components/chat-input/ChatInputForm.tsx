@@ -64,9 +64,10 @@ declare global {
 interface ChatInputFormProps {
   onSubmit?: (text: string) => void;
   onStartCall?: () => Promise<void>;
+  mode: 'text' | 'voice';
 }
 
-export function ChatInputForm({ onSubmit, onStartCall }: ChatInputFormProps) {
+export function ChatInputForm({ onSubmit, onStartCall, mode }: ChatInputFormProps) {
   const [isListening, setIsListening] = useState(false);
   const [inputValue, setInputValue] = useState("");
   const recognitionRef = useRef<SpeechRecognition | null>(null);
@@ -203,14 +204,25 @@ export function ChatInputForm({ onSubmit, onStartCall }: ChatInputFormProps) {
               </Button>
             </div>
 
-            <MagnetizeButton 
-              className="gap-1.5"
-              onClick={onStartCall}
-              type="button"
-            >
-              Start Call
-              <ArrowRight className="size-3.5" />
-            </MagnetizeButton>
+            {mode === 'voice' ? (
+              <MagnetizeButton 
+                className="gap-1.5"
+                onClick={onStartCall}
+                type="button"
+              >
+                Start Call
+                <ArrowRight className="size-3.5" />
+              </MagnetizeButton>
+            ) : (
+              <Button 
+                className="gap-1.5" 
+                type="submit"
+                disabled={!inputValue.trim()}
+              >
+                Send
+                <ArrowRight className="size-3.5" />
+              </Button>
+            )}
           </div>
         </div>
       </form>

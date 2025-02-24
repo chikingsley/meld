@@ -1,6 +1,7 @@
 // src/lib/session-store.ts
 import { useCallback } from 'react';
 import { useSessionStore } from '@/stores/useSessionStore';
+import { useUserStore } from '@/stores/useUserStore';
 
 export interface StoredMessage {
   message: {
@@ -36,7 +37,11 @@ export const sessionStore = {
     const sessions = this.getSessions();
     
     // Create new session
-    const newSession = await prismaStore.addSession(useSessionStore.getState().userId!);
+    const userId = useUserStore.getState().userId;
+    if (!userId) {
+      throw new Error('Cannot create session: userId not set');
+    }
+    const newSession = await prismaStore.addSession(userId);
     
     sessions.unshift(newSession);
     localStorage.setItem(SESSIONS_KEY, JSON.stringify(sessions));
@@ -83,20 +88,24 @@ export const sessionStore = {
       sessions[index].messages.push(message);
       localStorage.setItem(SESSIONS_KEY, JSON.stringify(sessions));
       
-      // Also save to prisma and store embedding
-      try {
-        const response = await prismaStore.addMessage(sessionId, message);
-        console.log('Updated session messages in both stores');
+      // Save to prisma and store embedding in background
+      Promise.resolve().then(async () => {
+        try {
+          const response = await prismaStore.addMessage(sessionId, message);
+          console.log('Updated session messages in prisma');
 
-        // Get message ID from response
-        const messageData = await response.json();
-        if (messageData?.id) {
-          // Store embedding
-          await prismaStore.storeEmbedding(messageData.id, message.message.content);
+          // Get message ID from response
+          const messageData = await response.json();
+          if (messageData?.id) {
+            // Store embedding in background
+            prismaStore.storeEmbedding(messageData.id, message.message.content)
+              .then(() => console.log('Stored embedding for message:', messageData.id))
+              .catch(err => console.error('Failed to store embedding:', err));
+          }
+        } catch (error) {
+          console.error('Failed to save message to prisma:', error);
         }
-      } catch (error) {
-        console.error('Failed to save message to prisma:', error);
-      }
+      });
     } else {
       console.error('Session not found:', sessionId);
     }

@@ -55,9 +55,8 @@ export const SessionProvider: React.FC<{ children: ReactNode }> = ({
 
   // Stable reference for navigation
   const navigateToSession = useCallback((sessionId: string) => {
-    const basePath = isVoiceMode ? '/session' : '/chat';
-    navigate(`${basePath}/${sessionId}`);
-  }, [navigate, isVoiceMode]);
+    navigate(`/session/${sessionId}`);
+  }, [navigate]);
 
   // Create a new session (async, uses API)
   const createSession = useCallback(async (): Promise<string | null> => {
@@ -239,7 +238,7 @@ export const SessionProvider: React.FC<{ children: ReactNode }> = ({
   // Effect to handle mode changes
   useEffect(() => {
     if (currentSessionId) {
-      const basePath = isVoiceMode ? '/session' : '/chat';
+      const basePath = '/session';
       navigate(`${basePath}/${currentSessionId}`);
     }
   }, [isVoiceMode, currentSessionId, navigate]);

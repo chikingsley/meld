@@ -105,7 +105,10 @@ const AppSidebarComponent = (props: React.ComponentProps<typeof Sidebar>) => {
   return (
     <SessionHandlerWrapper
       onCreateSession={async () => {
-        await createSession();
+        const sessionId = await createSession();
+        if (sessionId) {
+          navigate(`/session/${sessionId}`);
+        }
       }}
       onSelectSession={async (id: string) => {
         await selectSession(id);
@@ -113,6 +116,11 @@ const AppSidebarComponent = (props: React.ComponentProps<typeof Sidebar>) => {
       }}
       onDeleteSession={async (id: string) => {
         await deleteSession(id);
+        // After deleting, navigate to root if we were viewing that session
+        const currentPath = window.location.pathname;
+        if (currentPath.includes(id)) {
+          navigate('/');
+        }
       }}
     >
       <SidebarInner {...props} />
