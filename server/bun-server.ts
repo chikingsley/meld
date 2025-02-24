@@ -2,7 +2,9 @@
 
 import handleWebhook from './api/clerk/clerk-webhooks'
 import handleWebhookEvents from './api/clerk/webhook-events'
-import { POST as handleChatCompletions } from './api/chat/clm-sse-server'
+// import { POST as handleChatCompletions } from './api/chat/clm-sse-server'
+import { POST as handleChatCompletionsTest } from './api/chat/clm-sse-server-test'
+import { POST as handleEmotions } from './api/chat/emotions/hume-text-client'
 import { 
   handleGetSessions, 
   handleCreateSession,
@@ -68,13 +70,6 @@ const server = Bun.serve({
       });
     };
 
-    // Debug route matching
-    console.log('Incoming request:', {
-      pathname: url.pathname,
-      method: req.method,
-      matchesMessageRoute: url.pathname.match(/^\/api\/sessions\/[\w-]+\/messages$/)
-    });
-
     // Session endpoints
     if (url.pathname === '/api/sessions' && req.method === 'GET') {
       return await withCors(await handleGetSessions(req));
@@ -105,7 +100,13 @@ const server = Bun.serve({
 
     // Chat completions
     if (url.pathname === '/api/chat/completions' && req.method === 'POST') {
-      return handleChatCompletions(req);
+      // return handleChatCompletions(req);
+      return handleChatCompletionsTest(req);
+    }
+
+    // Emotions analysis
+    if (url.pathname === '/api/chat/emotions' && req.method === 'POST') {
+      return await withCors(await handleEmotions(req));
     }
 
     // Webhook events endpoint

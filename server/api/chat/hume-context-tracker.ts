@@ -56,10 +56,10 @@ export class ContextTracker {
    */
   private getModelTokenLimit(model: SupportedModel): number {
     // Log the model name resolution
-    console.log('🤖 Model token limit:', {
-      model,
-      tokenLimit: MODEL_LIMITS[model]
-    });
+    // console.log('🤖 Model token limit:', {
+    //   model,
+    //   tokenLimit: MODEL_LIMITS[model]
+    // });
     
     return MODEL_LIMITS[model];
   }
