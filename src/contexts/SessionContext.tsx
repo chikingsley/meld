@@ -12,7 +12,7 @@ import { ChatSession } from '@/components/sidebar/session-item';
 import { sessionStore, StoredSession } from '@/db/session-store';
 import { useUser } from '@clerk/clerk-react';
 import { formatDistanceToNow } from 'date-fns';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
   
 interface SessionContextState {
   sessions: ChatSession[];
@@ -53,33 +53,6 @@ export const SessionProvider: React.FC<{ children: ReactNode }> = ({
     navigate(`/session/${sessionId}`);
   }, [navigate]);
 
-  // Load sessions (using useCallback for stability)
-  const loadSessions = useCallback(async () => {
-    if (user?.id) {
-      setLoading(true);
-      setError(null);
-      try {
-        const storedSessions = await sessionStore.getUserSessions(user.id);
-        const formattedSessions = storedSessions.map(formatSession);
-        setSessions(formattedSessions);
-        // Set active session if none is set and there are sessions
-        if (formattedSessions.length > 0 && !currentSessionId) {
-          setCurrentSessionId(formattedSessions[0].id);
-          navigateToSession(formattedSessions[0].id);
-        }
-      } catch (err: any) {
-        setError(err.message || 'Failed to load sessions');
-      } finally {
-        setLoading(false);
-      }
-    }
-  }, [user?.id, navigate, currentSessionId]);
-
-  // Load sessions on mount and whenever the user changes
-  useEffect(() => {
-    loadSessions();
-  }, [loadSessions]);
-
   // Create a new session (async, uses API)
   const createSession = useCallback(async (): Promise<string | null> => {
     if (!user?.id) return null;
@@ -102,10 +75,79 @@ export const SessionProvider: React.FC<{ children: ReactNode }> = ({
     }
   }, [user?.id, navigateToSession]);
 
-  // Select a session (just sets the active session ID)
+  // Load sessions (using useCallback for stability)
+  const loadSessions = useCallback(async () => {
+    if (user?.id) {
+      setLoading(true);
+      setError(null);
+      try {
+        const storedSessions = await sessionStore.getUserSessions(user.id);
+        const formattedSessions = storedSessions.map(formatSession);
+        setSessions(formattedSessions);
+        // Set active session if none is set and there are sessions
+        if (formattedSessions.length > 0 && !currentSessionId) {
+          setCurrentSessionId(formattedSessions[0].id);
+          navigateToSession(formattedSessions[0].id);
+        }
+      } catch (err: any) {
+        setError(err.message || 'Failed to load sessions');
+      } finally {
+        setLoading(false);
+      }
+    }
+  }, [user?.id, navigate, currentSessionId]);
+
+
+
+  // Get URL session ID
+  const { sessionId: urlSessionId } = useParams();
+
+  // Handle URL and session synchronization
+  useEffect(() => {
+    if (!user?.id) return;
+
+    const handleUrlSession = async () => {
+      // If we have a URL session ID, try to select it
+      if (urlSessionId) {
+        const session = sessions.find(s => s.id === urlSessionId);
+        if (session) {
+          setCurrentSessionId(urlSessionId);
+        } else {
+          // Invalid session ID - redirect to first available or create new
+          if (sessions.length > 0) {
+            navigateToSession(sessions[0].id);
+          } else {
+            await createSession();
+          }
+        }
+        return;
+      }
+
+      // No URL session ID
+      if (sessions.length === 0) {
+        // No sessions exist - create new
+        await createSession();
+      } else if (!currentSessionId) {
+        // Have sessions but none selected - select first
+        navigateToSession(sessions[0].id);
+      }
+    };
+
+    handleUrlSession();
+  }, [urlSessionId, sessions, user?.id, currentSessionId, navigateToSession, createSession]);
+
+  // Load sessions on mount and whenever the user changes
+  useEffect(() => {
+    loadSessions();
+  }, [loadSessions]);
+
+
+
+  // Select a session and update URL
   const selectSession = useCallback((sessionId: string) => {
     setCurrentSessionId(sessionId);
-  }, []);
+    navigateToSession(sessionId);
+  }, [navigateToSession]);
 
   // Delete a session (async, uses API)
   const deleteSession = useCallback(async (sessionId: string) => {

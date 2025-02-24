@@ -3,19 +3,18 @@ import { useVoice } from "@/lib/VoiceProvider";
 import Messages from "./Messages";
 import BottomControls from "../chat-input/BottomControls";
 import { ComponentRef, useEffect, useRef, useState } from "react";
-import { useParams } from "react-router-dom";
 import { sessionStore, StoredMessage } from "@/db/session-store";
 
 interface ClientComponentProps {
-  sessionId?: string;
+  sessionId: string | null;
   onNewSession?: () => void;
 }
 
-export default function ClientComponent({ sessionId }: ClientComponentProps) {
+export default function ClientComponent({ sessionId: urlSessionId }: ClientComponentProps) {
   const timeout = useRef<number | null>(null);
   const ref = useRef<ComponentRef<typeof Messages> | null>(null);
   const { messages, clearMessages, status } = useVoice();
-  const { sessionId: urlSessionId } = useParams();
+  // Session ID comes from props
   const [storedMessages, setStoredMessages] = useState<StoredMessage[]>([]);
 
   // Create a unique ID for each message based on content and role
@@ -81,12 +80,6 @@ export default function ClientComponent({ sessionId }: ClientComponentProps) {
       );
 
       newMessages.forEach(msg => {
-        // console.log('Message structure:', {
-        //   msg,
-        //   models: msg.models,
-        //   type: msg.type,
-        //   message: msg.message
-        // });
 
         if ('message' in msg) {
           const messageId = createMessageId(msg);
@@ -140,7 +133,7 @@ export default function ClientComponent({ sessionId }: ClientComponentProps) {
     <div className={"relative grow flex flex-col mx-auto w-full h-full overflow-hidden"}>
         <Messages ref={ref} messages={displayMessages} />
         <BottomControls 
-          sessionId={sessionId}
+          sessionId={urlSessionId || undefined}
           hasMessages={displayMessages.length > 0}
         />
     </div>
