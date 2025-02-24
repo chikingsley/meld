@@ -44,41 +44,40 @@ export default function Test() {
   
   const sendMessage = async (content: string) => {
     try {
-    // Add user message
-    const now = new Date();
-    const userMessage: Message = {
-      id: `user-${now.getTime()}`,
-      type: "user_message",
-      message: {
-        role: "user",
-        content
-      },
-      timestamp: now.toISOString(),
-      models: {
-        prosody: { scores: await analyzeEmotions(content) }
-      },
-      receivedAt: now
-    };
-    
-    setMessages(prev => [...prev, userMessage]);
-    console.log('Sent user message:', userMessage);
-    setInput("");
-    } catch (error) {
-      console.error('Error analyzing emotions:', error);
-      return;
-    }
+      // Add user message
+      const now = new Date();
+      
+      // Create both messages with same timestamp
+      const userMessage: Message = {
+        id: `user-${now.getTime()}`,
+        type: "user_message",
+        message: {
+          role: "user",
+          content
+        },
+        timestamp: now.toISOString(),
+        models: {
+          prosody: { scores: await analyzeEmotions(content) }
+        },
+        receivedAt: now
+      };
+      
+      setMessages(prev => [...prev, userMessage]);
+      console.log('Sent user message:', userMessage);
+      setInput("");
 
-    try {
+      // Send to server with all messages including the new one
       const response = await fetch("/api/chat/completions", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          messages: messages.map(m => ({
+          messages: [...messages, userMessage].map(m => ({
             role: m.message.role,
             content: m.message.content,
-            models: m.models
+            models: m.models,
+            type: m.type
           }))
         })
       });
@@ -86,7 +85,6 @@ export default function Test() {
       const reader = response.body?.getReader();
       if (!reader) return;
 
-      const now = new Date();
       let assistantMessage: Message = {
         id: `assistant-${now.getTime()}`,
         type: "assistant_message",
@@ -159,13 +157,31 @@ export default function Test() {
         }
       }
 
-      // Log final state
+      // Analyze emotions for complete assistant message
+      const assistantEmotions = await analyzeEmotions(finalContent);
+      
+      // Update final message with emotion analysis
+      currentAssistantMessage = {
+        ...currentAssistantMessage,
+        models: {
+          prosody: { 
+            scores: assistantEmotions
+          }
+        }
+      };
+      
+      // Update messages one last time with emotion analysis
+      setMessages(prevMessages => {
+        const previousMessages = prevMessages.filter(m => m.id !== currentAssistantMessage.id);
+        return [...previousMessages, currentAssistantMessage];
+      });
+
       console.log('Final assistant message:', {
         content: finalContent,
-        emotions: finalScores
+        emotions: assistantEmotions
       });
     } catch (error) {
-      console.error("Error sending message:", error);
+      console.error('Error analyzing emotions or sending message:', error);
     }
   };
 
