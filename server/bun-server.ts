@@ -1,23 +1,21 @@
 // server/bun-server.ts
 
+import handleWebhook from './api/clerk/clerk-webhooks'
+import handleWebhookEvents from './api/clerk/webhook-events'
+import { POST as handleChatCompletions } from './api/chat/clm-sse-server'
+import { 
+  handleGetSessions, 
+  handleCreateSession,
+  handleDeleteSession,
+  handleGetMessages,
+  handleAddMessage,
+  handleUpdateSession
+} from './api/database/dbsession-handlers';
+
 // Declare global type
 declare global {
   var requestCount: number;
 }
-
-// import { PrismaClient } from "@prisma/client"
-import handleWebhook from './api/clerk/clerk-webhooks'
-import handleWebhookEvents from './api/clerk/webhook-events'
-import { POST as handleChatCompletions } from './api/chat/clm-sse-server'
-// import handleGetMe from './api/user/routes'
-
-// const prisma = new PrismaClient({
-//   datasources: {
-//     db: {
-//       url: process.env.DATABASE_URL
-//     }
-//   }
-// });
 
 const port = process.env.SERVER_PORT || 3001;
 
@@ -31,7 +29,7 @@ const server = Bun.serve({
       return new Response(null, {
         headers: {
           'Access-Control-Allow-Origin': '*',
-          'Access-Control-Allow-Methods': 'POST, GET, OPTIONS',
+          'Access-Control-Allow-Methods': 'POST, GET, PUT, DELETE, OPTIONS',
           'Access-Control-Allow-Headers': '*',
           'Access-Control-Allow-Credentials': 'true',
           'Access-Control-Max-Age': '86400'
@@ -42,7 +40,7 @@ const server = Bun.serve({
     // Add CORS headers to all responses
     const corsHeaders = {
       'Access-Control-Allow-Origin': '*',
-      'Access-Control-Allow-Methods': 'POST, GET, OPTIONS',
+      'Access-Control-Allow-Methods': 'POST, GET, PUT, DELETE, OPTIONS',
       'Access-Control-Allow-Headers': '*',
     };
 
@@ -56,6 +54,26 @@ const server = Bun.serve({
         status: 200,
         headers: corsHeaders 
       });
+    }
+
+    // Session endpoints
+    if (url.pathname === '/api/sessions' && req.method === 'GET') {
+      return handleGetSessions(req);
+    }
+    if (url.pathname === '/api/sessions' && req.method === 'POST') {
+      return handleCreateSession(req);
+    }
+    if (url.pathname.match(/^\/api\/sessions\/[\w-]+$/) && req.method === 'PUT') {
+      return handleUpdateSession(req);
+    }
+    if (url.pathname.match(/^\/api\/sessions\/[\w-]+$/) && req.method === 'DELETE') {
+      return handleDeleteSession(req);
+    }
+    if (url.pathname.match(/^\/api\/sessions\/[\w-]+\/messages$/) && req.method === 'GET') {
+      return handleGetMessages(req);
+    }
+    if (url.pathname.match(/^\/api\/sessions\/[\w-]+\/messages$/) && req.method === 'POST') {
+      return handleAddMessage(req);
     }
 
     // Clerk webhook
