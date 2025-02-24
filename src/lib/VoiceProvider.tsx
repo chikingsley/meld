@@ -11,7 +11,6 @@ import {
   useState,
 } from 'react';
 
-import { ConnectionMessage } from './connection-message';
 import { noop } from './noop';
 import { useCallDuration } from '../hooks/useCallDuration';
 import { useEncoding } from '../hooks/useEncoding';
@@ -29,7 +28,6 @@ import {
 import {
   AssistantTranscriptMessage,
   AudioOutputMessage,
-  ChatMetadataMessage,
   JSONMessage,
   UserInterruptionMessage,
   UserTranscriptMessage,
@@ -53,7 +51,6 @@ type VoiceStatus =
 export type VoiceContextType = {
   connect: () => Promise<void>;
   disconnect: () => void;
-  messages: (JSONMessage | ConnectionMessage)[];
   lastVoiceMessage: AssistantTranscriptMessage | null;
   lastUserMessage: UserTranscriptMessage | null;
   clearMessages: () => void;
@@ -78,7 +75,6 @@ export type VoiceContextType = {
   isSocketError: boolean;
   callDurationTimestamp: string | null;
   toolStatusStore: ReturnType<typeof useToolStatus>['store'];
-  chatMetadata: ChatMetadataMessage | null;
   isPaused: boolean;
 };
 
@@ -586,7 +582,6 @@ export const VoiceProvider: FC<VoiceProviderProps> = ({
     () => ({
       ...stateValue,
       ...actionsValue,
-      messages: messageStore.messages,
       lastVoiceMessage: messageStore.lastVoiceMessage,
       lastUserMessage: messageStore.lastUserMessage,
       readyState: client.readyState,
@@ -603,7 +598,6 @@ export const VoiceProvider: FC<VoiceProviderProps> = ({
       isError,
       callDurationTimestamp,
       toolStatusStore: toolStatus.store,
-      chatMetadata: messageStore.chatMetadata,
     }),
     [
       stateValue,
@@ -619,7 +613,6 @@ export const VoiceProvider: FC<VoiceProviderProps> = ({
       error,
       callDurationTimestamp,
       toolStatus.store,
-      messageStore.chatMetadata,
     ]
   );
 

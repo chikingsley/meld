@@ -4,6 +4,9 @@ import Messages from "./Messages";
 import BottomControls from "../chat-input/BottomControls";
 import { ComponentRef, useEffect, useRef, useState } from "react";
 import { sessionStore, StoredMessage } from "@/db/session-store";
+import { useSessionStore } from "@/stores/useSessionStore";
+import type { JSONMessage } from "@/models/messages";
+import type { ConnectionMessage } from "@/lib/connection-message";
 
 interface ClientComponentProps {
   sessionId: string | null;
@@ -13,15 +16,21 @@ interface ClientComponentProps {
 export default function ClientComponent({ sessionId: urlSessionId }: ClientComponentProps) {
   const timeout = useRef<number | null>(null);
   const ref = useRef<ComponentRef<typeof Messages> | null>(null);
-  const { messages, clearMessages, status } = useVoice();
-  // Session ID comes from props
+  const { clearMessages, status } = useVoice();
+  const messages = useSessionStore(state => state.messages);
+  const messagesLength = useSessionStore(state => state.messages.length);
   const [storedMessages, setStoredMessages] = useState<StoredMessage[]>([]);
 
   // Create a unique ID for each message based on content and role
-  const createMessageId = (msg: any) => {
-    const content = msg.message?.content || '';
-    const role = msg.message?.role || msg.type;
-    return `${role}-${content}`;
+  const createMessageId = (msg: StoredMessage | JSONMessage | ConnectionMessage) => {
+    if ('type' in msg && (msg.type === 'socket_connected' || msg.type === 'socket_disconnected')) {
+      return `${msg.type}-${msg.receivedAt.toISOString()}`;
+    } else if ('message' in msg) {
+      const content = typeof msg.message === 'object' && msg.message && 'content' in msg.message ? msg.message.content : '';
+      const role = typeof msg.message === 'object' && msg.message && 'role' in msg.message ? msg.message.role : '';
+      return `${role}-${content}`;
+    }
+    return `${msg.type || 'unknown'}-${msg.receivedAt.toISOString()}`;
   };
 
   // Convert stored messages and add IDs
@@ -110,7 +119,7 @@ export default function ClientComponent({ sessionId: urlSessionId }: ClientCompo
       const allMessages = sessionStore.getMessages(urlSessionId);
       setStoredMessages(allMessages);
     }
-  }, [messages, urlSessionId, status.value]);
+  }, [messagesLength, urlSessionId, status.value]);
 
   // Handle auto-scrolling
   useEffect(() => {
@@ -127,7 +136,7 @@ export default function ClientComponent({ sessionId: urlSessionId }: ClientCompo
         });
       }
     }, 200);
-  }, [messages]); // Scroll when messages change
+  }, [messagesLength]); // Scroll when number of messages changes
 
   return (
     <div className={"relative grow flex flex-col mx-auto w-full h-full overflow-hidden"}>

@@ -1,11 +1,9 @@
 // src/lib/hume-lib/hooks/useMessages.ts
 import type { CloseEvent } from 'hume/core';
 import { useCallback, useState } from 'react';
-
-import type { ConnectionMessage } from '../lib/connection-message';
+import { useSessionStore } from '@/stores/useSessionStore';
 import type {
   AssistantTranscriptMessage,
-  ChatMetadataMessage,
   JSONMessage,
   UserTranscriptMessage,
 } from '../models/messages';
@@ -22,18 +20,12 @@ export const useMessages = ({
     Record<string, AssistantTranscriptMessage>
   >({});
 
-  const [messages, setMessages] = useState<
-    Array<JSONMessage | ConnectionMessage>
-  >([]);
+  const { setMessages, setChatMetadata } = useSessionStore();
 
   const [lastVoiceMessage, setLastVoiceMessage] =
     useState<AssistantTranscriptMessage | null>(null);
   const [lastUserMessage, setLastUserMessage] =
     useState<UserTranscriptMessage | null>(null);
-
-  const [chatMetadata, setChatMetadata] = useState<ChatMetadataMessage | null>(
-    null,
-  );
 
   const createConnectMessage = useCallback(() => {
     setMessages((prev) =>
@@ -104,6 +96,7 @@ export const useMessages = ({
           });
           break;
         case 'chat_metadata':
+          console.log('Setting chat metadata:', message);
           sendMessageToParent?.(message);
           setMessages((prev) => {
             return keepLastN(messageHistoryLimit, prev.concat([message]));
@@ -154,9 +147,7 @@ export const useMessages = ({
     onMessage,
     onPlayAudio,
     clearMessages,
-    messages,
     lastVoiceMessage,
     lastUserMessage,
-    chatMetadata,
   };
 };

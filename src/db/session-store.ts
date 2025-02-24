@@ -1,5 +1,6 @@
 // src/lib/session-store.ts
-import { useVoice } from "@/lib/VoiceProvider";
+import { useCallback } from 'react';
+import { useSessionStore } from '@/stores/useSessionStore';
 
 export interface StoredMessage {
   message: {
@@ -88,22 +89,21 @@ export const sessionStore = {
 
 // React hook for session management
 export function useSession() {
-  const { messages } = useVoice();
-  
-  const createSession = (userId: string) => {
+  const createSession = useCallback((userId: string) => {
     return sessionStore.addSession(userId);
-  };
+  }, []);
 
-  const updateCurrentSession = (sessionId: string) => {
-    // Get last message for title/preview
+  const updateCurrentSession = useCallback((sessionId: string) => {
+    const messages = useSessionStore.getState().messages;
     const lastMessage = messages[messages.length - 1];
+    
     if (lastMessage && typeof lastMessage === 'object' && 'message' in lastMessage && 
         typeof lastMessage.message === 'object' && lastMessage.message && 'content' in lastMessage.message) {
       sessionStore.updateSession(sessionId, {
         lastMessage: lastMessage.message.content
       });
     }
-  };
+  }, []);
 
   return {
     createSession,
