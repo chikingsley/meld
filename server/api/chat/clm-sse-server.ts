@@ -57,16 +57,12 @@ export async function POST(req: Request) {
   const encoder = new TextEncoder();
   const stream = new TransformStream();
   const writer = stream.writable.getWriter();
-  
-  console.log('💫 Stream initialized');
 
   try {
     // Authentication check
     const authHeader = req.headers.get('Authorization');
-    console.log('🔑 Auth header present:', !!authHeader);
     
     if (authHeader) {
-      console.log('🔍 Validating auth format...');
       const token = authHeader.split(' ')[1];
       
       if (!authHeader.startsWith('Bearer ') || !token) {
@@ -86,23 +82,12 @@ export async function POST(req: Request) {
           }
         );
       }
-      console.log('✅ Authentication successful');
-      console.log('🎫 Token format valid:', token.substring(0, 10) + '...');
     }
 
     const body = await req.json();
-    // console.log('📦 Request body:', {
-    //   messageCount: body.messages?.length || 0,
-    //   lastMessage: body.messages?.[body.messages?.length - 1]?.content?.substring(0, 100) + '...',
-    //   modelConfig: {
-    //     model: getModelName(config.USE_OPENROUTER),
-    //     useOpenRouter: config.USE_OPENROUTER
-    //   }
-    // });
 
     // Get custom session ID if provided
     const customSessionId = new URL(req.url).searchParams.get('custom_session_id');
-    // if (customSessionId) console.log('Custom session ID:', customSessionId);
 
     // Store prosody data to use in responses
     const prosodyData: { [key: string]: any } = {};
@@ -124,12 +109,8 @@ export async function POST(req: Request) {
         content: msg.content
       };
     })];
-
-    // console.log('Processing messages:', messages);
-    // console.log('Prosody data:', prosodyData);
     
     console.log('🤖 Starting chat completion with model:', getModelName(config.USE_OPENROUTER));
-    console.log('📝 Using messages:', messages.length, 'messages in context');
     
     // Start OpenAI stream with configured model
     const stream2 = await openai.chat.completions.create({

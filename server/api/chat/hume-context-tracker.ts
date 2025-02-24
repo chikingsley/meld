@@ -92,7 +92,7 @@ export class ContextTracker {
    * @returns boolean - True if messages should be truncated
    */
   shouldTruncate(messages: Message[]): boolean {
-    console.log('🔍 Checking if messages need truncation...');
+    // console.log('🔍 Checking if messages need truncation...');
     
     // Estimate tokens by counting words and multiplying by average tokens per word
     const estimatedTokens = messages.reduce((acc, msg) => {
@@ -104,13 +104,13 @@ export class ContextTracker {
     const bufferTokens = Math.max(Math.floor(this.maxTokens * 0.1), 500);
     const shouldTruncate = estimatedTokens > (this.maxTokens - bufferTokens);
     
-    console.log({
-      estimatedTokens,
-      maxTokens: this.maxTokens,
-      bufferTokens,
-      remainingTokens: this.maxTokens - estimatedTokens,
-      shouldTruncate
-    });
+    // console.log({
+    //   estimatedTokens,
+    //   maxTokens: this.maxTokens,
+    //   bufferTokens,
+    //   remainingTokens: this.maxTokens - estimatedTokens,
+    //   shouldTruncate
+    // });
 
     return shouldTruncate;
   }

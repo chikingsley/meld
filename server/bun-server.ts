@@ -55,24 +55,44 @@ const server = Bun.serve({
       });
     }
 
+    // Helper to add CORS headers to response
+    const withCors = async (response: Response) => {
+      const newHeaders = new Headers(response.headers);
+      Object.entries(corsHeaders).forEach(([key, value]) => {
+        newHeaders.set(key, value);
+      });
+      return new Response(response.body, {
+        status: response.status,
+        statusText: response.statusText,
+        headers: newHeaders
+      });
+    };
+
+    // Debug route matching
+    console.log('Incoming request:', {
+      pathname: url.pathname,
+      method: req.method,
+      matchesMessageRoute: url.pathname.match(/^\/api\/sessions\/[\w-]+\/messages$/)
+    });
+
     // Session endpoints
     if (url.pathname === '/api/sessions' && req.method === 'GET') {
-      return handleGetSessions(req);
+      return await withCors(await handleGetSessions(req));
     }
     if (url.pathname === '/api/sessions' && req.method === 'POST') {
-      return handleCreateSession(req);
+      return await withCors(await handleCreateSession(req));
     }
     if (url.pathname.match(/^\/api\/sessions\/[\w-]+$/) && req.method === 'PUT') {
-      return handleUpdateSession(req);
+      return await withCors(await handleUpdateSession(req));
     }
     if (url.pathname.match(/^\/api\/sessions\/[\w-]+$/) && req.method === 'DELETE') {
-      return handleDeleteSession(req);
+      return await withCors(await handleDeleteSession(req));
     }
     if (url.pathname.match(/^\/api\/sessions\/[\w-]+\/messages$/) && req.method === 'GET') {
-      return handleGetMessages(req);
+      return await withCors(await handleGetMessages(req));
     }
     if (url.pathname.match(/^\/api\/sessions\/[\w-]+\/messages$/) && req.method === 'POST') {
-      return handleAddMessage(req);
+      return await withCors(await handleAddMessage(req));
     }
 
     // Clerk webhook
@@ -85,7 +105,6 @@ const server = Bun.serve({
 
     // Chat completions
     if (url.pathname === '/api/chat/completions' && req.method === 'POST') {
-      console.log('Chat completions request received');
       return handleChatCompletions(req);
     }
 
