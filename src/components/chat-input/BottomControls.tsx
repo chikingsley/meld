@@ -23,12 +23,35 @@ const BottomControls = React.memo(({ sessionId }: BottomControlsProps) => {
   const [isTransitioning, setIsTransitioning] = React.useState(false)
   const [isPostCall, setIsPostCall] = React.useState(false)
   const isMobile = useIsMobile()
-  const { isVoiceMode } = useSessionContext();
+  const { isVoiceMode, createVoiceSession } = useSessionContext();
 
   // Use text mode handler from hook
   const { sendMessage: handleTextSubmit } = useText({
     messageHistoryLimit: 100
   });
+
+  // Reset post-call state when changing sessions
+  React.useEffect(() => {
+    if (sessionId) {
+      setIsPostCall(false)
+    }
+  }, [sessionId])
+
+  const handleStartCall = async () => {
+    setIsTransitioning(true)
+    try {
+      // Create a new session for this voice call
+      const newSessionId = await createVoiceSession();
+      if (newSessionId) {
+        await sendSessionSettings({ customSessionId: newSessionId })
+        await connect()
+      }
+    } catch (error) {
+      console.error('Connection failed:', error)
+    } finally {
+      setIsTransitioning(false)
+    }
+  }
 
   const handleEndCall = React.useCallback(async () => {
     setIsTransitioning(true)
@@ -41,30 +64,6 @@ const BottomControls = React.memo(({ sessionId }: BottomControlsProps) => {
       setIsTransitioning(false)
     }
   }, [disconnect])
-
-  // Reset post-call state when changing sessions
-  React.useEffect(() => {
-    if (sessionId) {
-      setIsPostCall(false)
-    }
-  }, [sessionId])
-
-  const handleStartCall = async () => {
-    console.log('Starting call with sessionId:', sessionId);
-    setIsTransitioning(true)
-    try {
-      if (sessionId) {
-        // Always set session ID before connecting
-        await sendSessionSettings({ customSessionId: sessionId })
-        // Don't clear messages when starting call
-        await connect()
-      }
-    } catch (error) {
-      console.error('Connection failed:', error)
-    } finally {
-      setIsTransitioning(false)
-    }
-  }
   
   // Show voice controls only when in voice mode and connected/connecting
   const showVoiceControls = isVoiceMode && (status.value === "connected" || status.value === "connecting" || isTransitioning);

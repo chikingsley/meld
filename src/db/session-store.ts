@@ -79,6 +79,7 @@ export const sessionStore = {
   },
 
   async addMessage(sessionId: string, message: StoredMessage) {
+    console.log('🔧 Adding message to session store:', { sessionId, message });
     const sessions = this.getSessions();
     const index = sessions.findIndex(s => s.id === sessionId);
     if (index !== -1) {
@@ -86,9 +87,11 @@ export const sessionStore = {
         sessions[index].messages = [];
       }
       sessions[index].messages.push(message);
+      console.log('🔧 Updated session messages:', sessions[index].messages);
       localStorage.setItem(SESSIONS_KEY, JSON.stringify(sessions));
       
       // Save to prisma and store embedding in background
+      console.log('🔧 Saving message to prisma...');
       Promise.resolve().then(async () => {
         try {
           const response = await prismaStore.addMessage(sessionId, message);

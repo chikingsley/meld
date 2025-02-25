@@ -5,6 +5,7 @@ import handleWebhookEvents from './api/clerk/webhook-events'
 // import { POST as handleChatCompletions } from './api/chat/clm-sse-server'
 import { POST as handleChatCompletionsTest } from './api/chat/clm-sse-server-test'
 import { POST as handleEmotions } from './api/chat/emotions/hume-text-client'
+import { POST as handleTitleGeneration } from './api/chat/title/generate-title'
 import { 
   handleGetSessions, 
   handleCreateSession,
@@ -112,6 +113,11 @@ const server = Bun.serve({
     // Emotions analysis
     if (url.pathname === '/api/chat/emotions' && req.method === 'POST') {
       return await withCors(await handleEmotions(req));
+    }
+
+    // Title generation
+    if (url.pathname === '/api/chat/title' && req.method === 'POST') {
+      return await withCors(await handleTitleGeneration(req));
     }
 
     // Embeddings endpoints

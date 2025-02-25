@@ -91,10 +91,9 @@ export const useVoiceClient = (props: {
   const resetConnection = useCallback(() => {
     setIsConnecting(false);
     isConnectingRef.current = false;
-    if (client.current) {
-      client.current.close();
-      client.current = null;
-    }
+    // Only store the client reference and null it out
+    // Don't call close() here as it may already be closing
+    client.current = null;
   }, []);
 
   const connect = useCallback((config: SocketConfig) => {
@@ -239,8 +238,11 @@ export const useVoiceClient = (props: {
   }, []);
 
   const disconnect = useCallback(() => {
-    setReadyState(VoiceReadyState.IDLE);
-    resetConnection();
+    if (client.current) {
+      client.current.close();
+      setReadyState(VoiceReadyState.IDLE);
+      resetConnection();
+    }
   }, [resetConnection]);
 
   const sendSessionSettings = useCallback(

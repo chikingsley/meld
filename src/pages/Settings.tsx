@@ -9,13 +9,24 @@ import { Brain, ChevronLeft, Download, HeartPulse, KeyRound, LifeBuoy, Mail, Mes
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { PlanToggle } from "@/components/ui/plan-toggle"
-import { useUser } from "@clerk/clerk-react";
+import { useUser, RedirectToSignIn } from "@clerk/clerk-react";
+import { useTitleGeneration } from "@/db/session-store-extension";
+import { useSessionContext } from "@/contexts/SessionContext";
 
 export default function SettingsPage() {
-    const { user } = useUser();
+    const { user, isLoaded, isSignedIn } = useUser();
+    const { batchGenerateTitles } = useTitleGeneration();
+    const { isVoiceMode } = useSessionContext();
 
-    if (!user) {
-        return null;
+    console.log('[SettingsPage] Auth state:', { isLoaded, isSignedIn, userId: user?.id });
+
+    if (!isLoaded) {
+        return <div>Loading...</div>;
+    }
+
+    if (!isSignedIn || !user) {
+        console.log('[SettingsPage] Not signed in, redirecting...');
+        return <RedirectToSignIn />;
     }
 
     // Use the same initials logic
@@ -27,7 +38,7 @@ export default function SettingsPage() {
         <div className="min-h-screen bg-background">
             <div className="container mx-auto p-6">
                 <div className="flex items-center justify-between mb-8">
-                    <Link to="/" className="inline-flex items-center text-sm font-medium text-muted-foreground hover:text-primary">
+                    <Link to="/session" className="inline-flex items-center text-sm font-medium text-muted-foreground hover:text-primary">
                         <ChevronLeft className="mr-2 h-4 w-4" />
                         Back to Dashboard
                     </Link>
@@ -166,6 +177,23 @@ export default function SettingsPage() {
                                         <Button variant="secondary">
                                             <Download className="mr-2 h-4 w-4" />
                                             Export
+                                        </Button>
+                                    </div>
+                                </div>
+                                <Separator />
+                                <div className="flex flex-col space-y-2">
+                                    <Label>Chat Titles</Label>
+                                    <div className="flex space-x-2">
+                                        <Button 
+                                            variant="secondary" 
+                                            className="flex-1"
+                                            onClick={async () => {
+                                                if (!user) return;
+                                                await batchGenerateTitles(user.id, isVoiceMode);
+                                            }}
+                                        >
+                                            <MessageSquare className="mr-2 h-4 w-4" />
+                                            Generate Titles for All Chats
                                         </Button>
                                     </div>
                                 </div>
