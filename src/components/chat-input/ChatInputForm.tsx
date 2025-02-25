@@ -166,7 +166,13 @@ export function ChatInputForm({ onSubmit, onStartCall, mode }: ChatInputFormProp
               ref={textareaRef}
               value={inputValue}
               onChange={(e) => setInputValue(e.target.value)}
-              placeholder="Type a message or use your microphone..."
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                  e.preventDefault();
+                  handleSubmit(e);
+                }
+              }}
+              placeholder="Type a message or use your microphone... (Press Enter to send, Shift+Enter for new line)"
               autoFocus
               className="min-h-[4.5rem] w-full resize-none rounded-lg bg-background text-base leading-relaxed focus-visible:outline-none focus-visible:ring-0 text-foreground placeholder:text-muted-foreground caret-foreground"
               style={{
