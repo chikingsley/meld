@@ -66,14 +66,17 @@ export function useText({
       
       const userMessage: UserTranscriptMessage = {
         type: 'user_message',
-        id: '', // Will be set by database
         interim: false,
+        fromText: true,
+        time: {
+          begin: now.getTime(),
+          end: now.getTime()
+        },
         message: {
           role: 'user',
           content: content
         },
         receivedAt: now,
-        timestamp: now.toISOString(),
         models: {
           prosody: { scores: emotionScores }
         }
@@ -83,15 +86,20 @@ export function useText({
       onMessage?.(userMessage);
       setLastUserMessage(userMessage);
       
+      // Get message history before adding new message
+      const messageHistory = messages
+        .filter((msg): msg is AssistantTranscriptMessage | UserTranscriptMessage => 
+          msg.type === 'assistant_message' || msg.type === 'user_message')
+        .map(msg => ({
+          role: msg.message.role,
+          content: msg.message.content || ''
+        }));
+
       // Update messages state with new user message
       const updatedMessages = keepLastN(messageHistoryLimit, messages.concat([userMessage]));
       setMessages(updatedMessages);
 
-      // Convert updated messages to API format and send completion
-      const messageHistory = updatedMessages.map(msg => ({
-        role: msg.message.role,
-        content: msg.message.content
-      }));
+      // Send completion with history (current message added by useCompletions)
       await sendCompletion(content, messageHistory);
     } catch (error) {
       console.error('Error in text messages:', error);
