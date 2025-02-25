@@ -1,3 +1,4 @@
+// src/lib/TextProvider.tsx
 import { useCallback, useState } from 'react';
 import { useSessionStore } from '@/stores/useSessionStore';
 import { useSessionContext } from "@/contexts/SessionContext"

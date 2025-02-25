@@ -1,3 +1,4 @@
+// src/lib/VoiceProvider.tsx
 import { type Hume } from 'hume';
 import {
   createContext,
@@ -330,7 +331,7 @@ export const VoiceProvider: FC<VoiceProviderProps> = ({
         console.error('[VoiceProvider] Microphone permission denied');
         const error: VoiceError = {
           type: 'mic_error',
-          message: 'Microphone permission denied',
+          message: 'Microphone permission denied. Please grant microphone access and try again.',
         };
         updateError(error);
         throw error;
@@ -347,7 +348,8 @@ export const VoiceProvider: FC<VoiceProviderProps> = ({
       } catch (e) {
         const error: VoiceError = {
           type: 'socket_error',
-          message: 'We could not connect to the voice. Please try again.',
+          message: 'Could not establish voice connection. Please try again.',
+          error: e instanceof Error ? e : undefined
         };
         // console.error('[VoiceProvider] Connection failed:', e);
         updateError(error);
@@ -385,6 +387,9 @@ export const VoiceProvider: FC<VoiceProviderProps> = ({
   const disconnectFromVoice = useCallback(async () => {
     console.log('[VoiceProvider] Initiating voice disconnect...');
     setStatus({ value: 'disconnecting' });
+
+    // Clean up any error state
+    updateError(null);
 
     const cleanupPromises = [];
 

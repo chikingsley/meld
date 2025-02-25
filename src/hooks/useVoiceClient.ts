@@ -1,5 +1,6 @@
+// src/hooks/useVoiceClient.ts
 import { Hume, HumeClient } from 'hume';
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { type Simplify } from 'type-fest';
 
 import { type AuthStrategy } from '../lib/auth';
@@ -57,6 +58,8 @@ export const useVoiceClient = (props: {
   onClose?: Hume.empathicVoice.chat.ChatSocket.EventHandlers['close'];
 }) => {
   const client = useRef<Hume.empathicVoice.chat.ChatSocket | null>(null);
+  const [isConnecting, setIsConnecting] = useState(false);
+  const isConnectingRef = useRef(false);
 
   const [readyState, setReadyState] = useState<VoiceReadyState>(
     VoiceReadyState.IDLE,
@@ -84,8 +87,32 @@ export const useVoiceClient = (props: {
   const onClose = useRef<typeof props.onClose>(props.onClose);
   onClose.current = props.onClose;
 
+  // Reset connection state
+  const resetConnection = useCallback(() => {
+    setIsConnecting(false);
+    isConnectingRef.current = false;
+    if (client.current) {
+      client.current.close();
+      client.current = null;
+    }
+  }, []);
+
   const connect = useCallback((config: SocketConfig) => {
     return new Promise((resolve, reject) => {
+      // Prevent multiple simultaneous connection attempts
+      if (isConnectingRef.current) {
+        console.log('[VoiceClient] Connection attempt already in progress');
+        return reject(new Error('Connection attempt already in progress'));
+      }
+
+      // Clean up any existing connection
+      if (client.current) {
+        client.current.close();
+        client.current = null;
+      }
+
+      isConnectingRef.current = true;
+      setIsConnecting(true);
       const hume = new HumeClient(
         config.auth.type === 'apiKey'
           ? {
@@ -191,12 +218,18 @@ export const useVoiceClient = (props: {
       });
 
       client.current.on('close', (event) => {
-        onClose.current?.(event);
+        console.log('[VoiceClient] Connection closed');
         setReadyState(VoiceReadyState.CLOSED);
+        resetConnection();
+        onClose.current?.(event);
+        onError.current?.('Voice connection closed unexpectedly');
+        reject(new Error('Connection closed'));
       });
 
       client.current.on('error', (e) => {
+        console.error('[VoiceClient] WebSocket error:', e);
         const message = e instanceof Error ? e.message : 'Unknown error';
+        setIsConnecting(false);
         onError.current?.(message, e instanceof Error ? e : undefined);
         reject(e);
       });
@@ -207,8 +240,8 @@ export const useVoiceClient = (props: {
 
   const disconnect = useCallback(() => {
     setReadyState(VoiceReadyState.IDLE);
-    client.current?.close();
-  }, []);
+    resetConnection();
+  }, [resetConnection]);
 
   const sendSessionSettings = useCallback(
     (sessionSettings: Hume.empathicVoice.SessionSettings) => {
@@ -292,6 +325,13 @@ export const useVoiceClient = (props: {
     }
     client.current?.resumeAssistant({});
   }, [readyState]);
+
+  // Clean up on unmount
+  useEffect(() => {
+    return () => {
+      resetConnection();
+    };
+  }, [resetConnection]);
 
   return {
     readyState,
