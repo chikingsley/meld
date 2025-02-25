@@ -7,7 +7,6 @@ import { POST as handleEmotions } from './api/chat/emotions/hume-text-client'
 import { POST as handleTitleGeneration } from './api/chat/title/generate-title'
 import { handleChatImport } from './api/database/import-handler';
 import { handleDirectImport } from './api/database/direct-import-handler';
-import { handleChatExport } from './api/database/export-handler';
 import {
   handleGetSessions,
   handleCreateSession,
@@ -162,10 +161,6 @@ const server = Bun.serve({
         console.error('Error in direct import route:', error);
         return await withCors(new Response(`Server error: ${error}`, { status: 500 }));
       }
-    }
-    if (url.pathname === '/api/chat/export' && req.method === 'GET') {
-      console.log('Routing to chat export handler');
-      return await withCors(await handleChatExport(req));
     }
 
     return new Response('Not Found', { status: 404, headers: corsHeaders });

@@ -6,18 +6,19 @@ import { Label } from "@/components/ui/label"
 import { Separator } from "@/components/ui/separator"
 import { Switch } from "@/components/ui/switch"
 import { Link } from 'react-router-dom';
-import { Brain, ChevronLeft, Download, HeartPulse, KeyRound, LifeBuoy, Mail, MessageSquare, Trash2, Upload } from "lucide-react"
+import { Brain, ChevronLeft, Download, HeartPulse, KeyRound, LifeBuoy, Mail, MessageSquare, Trash2 } from "lucide-react"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { PlanToggle } from "@/components/ui/plan-toggle"
 import { useUser, RedirectToSignIn, useAuth } from "@clerk/clerk-react";
 import { useTitleGeneration } from "@/db/session-store-extension";
 import { useSessionContext } from "@/db/SessionContext";
-import { useState, useRef } from "react";
-import { Textarea } from "@/components/ui/textarea";
+import { useState, useRef, useEffect } from "react";
+import { Progress } from "@/components/ui/progress";
+import { Loader2 } from "lucide-react";
 
 // Import React FilePond
-import { FilePond, registerPlugin } from "react-filepond";
+import { FilePond } from "react-filepond";
 import type { FilePondFile } from "filepond";
 
 // Import FilePond styles
@@ -29,6 +30,71 @@ interface ImportStatus {
     message: string;
 }
 
+// Define types for import progress
+interface ImportProgress {
+  type: 'start' | 'session-start' | 'progress' | 'session-complete' | 'complete' | 'error' | 'error-message' | 'error-session' | 'error-title';
+  session?: number;
+  totalSessions?: number;
+  messagesInSession?: number;
+  totalMessagesInSession?: number;
+  totalMessagesProcessed?: number;
+  totalMessages?: number;
+  failedAnalyses?: number;
+  message?: string;
+  name?: string;
+}
+
+// Import Progress Component
+function ImportProgress({ progress }: { progress: ImportProgress | null }) {
+  if (!progress) return null;
+
+  const getProgressPercentage = () => {
+    if (progress.type === 'progress' && progress.totalMessages) {
+      return (progress.totalMessagesProcessed! / progress.totalMessages) * 100;
+    }
+    return 0;
+  };
+
+  const getStatusColor = () => {
+    if (progress.type.startsWith('error')) return 'text-destructive';
+    if (progress.type === 'complete') return 'text-green-600';
+    return 'text-primary';
+  };
+
+  return (
+    <div className="mt-4 space-y-2">
+      <div className="flex items-center gap-2">
+        {progress.type !== 'complete' && progress.type !== 'error' && (
+          <Loader2 className="h-4 w-4 animate-spin" />
+        )}
+        <p className={`text-sm font-medium ${getStatusColor()}`}>
+          {progress.type === 'start' && progress.message}
+          {progress.type === 'session-start' && `Processing session ${progress.session}/${progress.totalSessions}: ${progress.name}`}
+          {progress.type === 'progress' && `Processing messages (${progress.totalMessagesProcessed}/${progress.totalMessages})`}
+          {progress.type === 'session-complete' && `Completed session ${progress.session}/${progress.totalSessions}`}
+          {progress.type === 'complete' && progress.message}
+          {progress.type.startsWith('error') && progress.message}
+        </p>
+      </div>
+      
+      {progress.type === 'progress' && progress.totalMessages && (
+        <div className="space-y-1">
+          <Progress value={getProgressPercentage()} className="h-2" />
+          <div className="flex justify-between text-xs text-muted-foreground">
+            <span>Session {progress.session}/{progress.totalSessions}</span>
+            <span>{Math.round(getProgressPercentage())}%</span>
+          </div>
+          {(progress.failedAnalyses ?? 0) > 0 && (
+            <p className="text-xs text-yellow-600">
+              {progress.failedAnalyses} messages had analysis errors
+            </p>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function SettingsPage() {
     const { user, isLoaded, isSignedIn } = useUser();
     const { getToken } = useAuth();
@@ -37,8 +103,102 @@ export default function SettingsPage() {
     const [files, setFiles] = useState<File[]>([]);
     const [exportFilename, setExportFilename] = useState("sessions-backup.json");
     const [importStatus, setImportStatus] = useState<ImportStatus | null>(null);
+    const [importProgress, setImportProgress] = useState<ImportProgress | null>(null);
     const filepond = useRef<FilePond | null>(null);
-    const [jsonText, setJsonText] = useState('');
+    const [jsonText] = useState('');
+    const eventSourceRef = useRef<EventSource | null>(null);
+
+    // Add cleanup on unmount
+    useEffect(() => {
+        return () => {
+            if (eventSourceRef.current) {
+                eventSourceRef.current.close();
+            }
+        };
+    }, []);
+
+    // Add SSE connection handler
+    const connectToSSE = async (userId: string, token: string) => {
+        // Close existing connection if any
+        if (eventSourceRef.current) {
+            eventSourceRef.current.close();
+        }
+
+        const eventSource = new EventSource(`http://localhost:3001/api/chat/import-progress?userId=${userId}`);
+        eventSourceRef.current = eventSource;
+
+        eventSource.onmessage = (event) => {
+            const data = JSON.parse(event.data) as ImportProgress;
+            setImportProgress(data);
+
+            if (data.type === 'complete') {
+                setImportStatus({
+                    type: 'success',
+                    message: data.message || 'Import completed successfully'
+                });
+                eventSource.close();
+                eventSourceRef.current = null;
+                // Reset progress after 5 seconds
+                setTimeout(() => setImportProgress(null), 5000);
+            } else if (data.type === 'error') {
+                setImportStatus({
+                    type: 'error',
+                    message: data.message || 'Import failed'
+                });
+                eventSource.close();
+                eventSourceRef.current = null;
+                // Keep error progress visible
+            }
+        };
+
+        eventSource.onerror = () => {
+            console.error('SSE connection error');
+            eventSource.close();
+            eventSourceRef.current = null;
+            setImportProgress({
+                type: 'error',
+                message: 'Lost connection to server'
+            });
+        };
+    };
+
+    // Update the direct JSON import handler
+    const handleDirectJsonImport = async (jsonData: any) => {
+        try {
+            const token = await getToken();
+            if (!token || !user) return;
+
+            setImportProgress({
+                type: 'start',
+                message: 'Starting import...'
+            });
+
+            // Connect to SSE first
+            await connectToSSE(user.id, token);
+
+            const response = await fetch('http://localhost:3001/api/chat/direct-import', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'x-user-id': user.id,
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify(jsonData)
+            });
+
+            if (!response.ok) {
+                const errorText = await response.text();
+                throw new Error(`Import failed: ${errorText}`);
+            }
+        } catch (error) {
+            console.error('Direct JSON import error:', error);
+            setImportStatus({
+                type: 'error',
+                message: `Import failed: ${(error as Error).message}`
+            });
+            setImportProgress(null);
+        }
+    };
 
     console.log('[SettingsPage] Auth state:', { isLoaded, isSignedIn, userId: user?.id });
 
@@ -55,6 +215,38 @@ export default function SettingsPage() {
     const initials = user.firstName && user.lastName
         ? `${user.firstName[0]}${user.lastName[0]}`
         : user.emailAddresses[0]?.emailAddress?.[0]?.toUpperCase() || '?';
+
+    // Handle file export
+    const handleExport = async () => {
+        try {
+            const token = await getToken();
+            const response = await fetch('http://localhost:3001/api/chat/export', {
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'x-user-id': user.id,
+                    'Authorization': `Bearer ${token}`
+                }
+            });
+
+            if (!response.ok) {
+                throw new Error(`Export failed: ${response.statusText}`);
+            }
+
+            const blob = await response.blob();
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = exportFilename || 'sessions-backup.json';
+            document.body.appendChild(a);
+            a.click();
+            window.URL.revokeObjectURL(url);
+            document.body.removeChild(a);
+        } catch (error) {
+            console.error('Export error:', error);
+            // Could show an error alert here
+        }
+    };
 
     return (
         <div className="min-h-screen bg-background">
@@ -190,6 +382,9 @@ export default function SettingsPage() {
                                 <div className="flex flex-col space-y-2">
                                     <Label>Import from backup</Label>
                                     <div className="space-y-4">
+                                        {/* Show import progress if available */}
+                                        <ImportProgress progress={importProgress} />
+
                                         {/* FilePond Component */}
                                         <FilePond
                                             ref={filepond}
@@ -210,24 +405,22 @@ export default function SettingsPage() {
                                                         'Authorization': `Bearer ${user.id}`
                                                     },
                                                     onload: (response) => {
-                                                        console.log('FilePond upload response:', response);
                                                         try {
                                                             const result = JSON.parse(response);
                                                             setImportStatus({
-                                                                type: result.success ? 'success' : 'error',
+                                                                type: 'success',
                                                                 message: result.message
                                                             });
                                                         } catch (e) {
-                                                            console.error('Error parsing FilePond response:', e);
                                                             setImportStatus({
-                                                                type: 'error',
-                                                                message: 'Error processing server response: ' + response
+                                                                type: 'success',
+                                                                message: 'Import successful'
                                                             });
                                                         }
                                                         return response;
                                                     },
                                                     onerror: (response) => {
-                                                        console.error('FilePond upload error:', response);
+                                                        console.error('Import error:', response);
                                                         setImportStatus({
                                                             type: 'error',
                                                             message: `Import failed: ${response}`
@@ -249,82 +442,50 @@ export default function SettingsPage() {
                                                     onChange={(e) => {
                                                         if (e.target.files && e.target.files.length > 0) {
                                                             const selectedFile = e.target.files[0];
-                                                            setFiles([selectedFile as File]);
+                                                            setFiles([{
+                                                                source: selectedFile,
+                                                                options: { type: 'local' }
+                                                            }]);
                                                         }
                                                     }}
                                                 />
                                                 <Button
                                                     variant="secondary"
                                                     onClick={async () => {
-                                                        try {
-                                                            // Validate JSON before sending
-                                                            let jsonData;
-                                                            try {
-                                                                jsonData = JSON.parse(jsonText);
-                                                                if (!Array.isArray(jsonData)) {
-                                                                    throw new Error('JSON data must be an array of sessions');
-                                                                }
-                                                            } catch (parseError) {
-                                                                setImportStatus({
-                                                                    type: 'error',
-                                                                    message: `Invalid JSON: ${(parseError as Error).message}`
-                                                                });
-                                                                return;
-                                                            }
-
+                                                        if (!files || files.length === 0) {
                                                             setImportStatus({
-                                                                type: 'info',
-                                                                message: 'Processing import...'
+                                                                type: 'error',
+                                                                message: 'Please select a file first'
                                                             });
+                                                            return;
+                                                        }
 
-                                                            // Log what we're sending
-                                                            console.log('Sending data to direct-import:', jsonData);
+                                                        // Connect to SSE first
+                                                        await connectToSSE(user.id, token);
 
-                                                            const token = await getToken();
-                                                            const response = await fetch('http://localhost:3001/api/chat/direct-import', {
-                                                                method: 'POST',
-                                                                headers: {
-                                                                    'Content-Type': 'application/json',
-                                                                    'x-user-id': user.id,
-                                                                    'Authorization': `Bearer ${token || user.id}`
-                                                                },
-                                                                body: jsonText
+                                                        const formData = new FormData();
+                                                        formData.append(fieldName, file);
+
+                                                        const response = await fetch('http://localhost:3001/api/chat/import', {
+                                                            method: 'POST',
+                                                            headers: {
+                                                                'x-user-id': user.id,
+                                                                'Authorization': `Bearer ${token}`
+                                                            },
+                                                            body: formData
+                                                        });
+
+                                                        if (!response.ok) {
+                                                            throw new Error(`Upload failed: ${response.statusText}`);
+                                                        }
+
+                                                            const result = await response.json();
+                                                            setImportStatus({
+                                                                type: 'success',
+                                                                message: result.message || 'Import successful'
                                                             });
-
-                                                            console.log('Response status:', response.status);
-
-                                                            // Get response as text first to inspect it
-                                                            const rawResponse = await response.text();
-                                                            console.log('Raw response:', rawResponse);
-
-                                                            let result;
-                                                            try {
-                                                                result = JSON.parse(rawResponse);
-                                                            } catch (e) {
-                                                                // If response isn't JSON, use the raw text
-                                                                console.error('Failed to parse response as JSON:', e);
-                                                                if (response.ok) {
-                                                                    setImportStatus({
-                                                                        type: 'success',
-                                                                        message: `Import successful, but received non-JSON response`
-                                                                    });
-                                                                } else {
-                                                                    throw new Error(`Server error (status ${response.status}): ${rawResponse}`);
-                                                                }
-                                                                return;
-                                                            }
-
-                                                            // Handle the parsed response
-                                                            if (response.ok) {
-                                                                setImportStatus({
-                                                                    type: 'success',
-                                                                    message: result.message || 'Import successful'
-                                                                });
-                                                            } else {
-                                                                throw new Error(result.message || `Server error (status ${response.status})`);
-                                                            }
                                                         } catch (error) {
-                                                            console.error('Text import error:', error);
+                                                            console.error('Manual upload error:', error);
                                                             setImportStatus({
                                                                 type: 'error',
                                                                 message: `Import failed: ${(error as Error).message}`
@@ -354,7 +515,7 @@ export default function SettingsPage() {
                                                     }
 
                                                     try {
-                                                        const file = files[0];
+                                                        const file = files[0].source;
                                                         const fileContent = await file.text();
                                                         let jsonData;
 
@@ -399,7 +560,7 @@ export default function SettingsPage() {
                                             </Button>
                                         </div>
 
-                                        {/* Simple JSON Import */}
+                                        // Add this UI section after the other import options
                                         <div className="mt-6 p-4 border rounded-md bg-gray-50">
                                             <Label className="text-lg font-semibold">Simple JSON Import</Label>
                                             <p className="text-sm text-muted-foreground mb-4">
@@ -413,21 +574,20 @@ export default function SettingsPage() {
                                                 onChange={(e) => setJsonText(e.target.value)}
                                             />
 
-                                            <Button
-                                                className="w-full"
-                                                onClick={async () => {
+                                        <Button
+                                            className="w-full"
+                                            onClick={async () => {
+                                                try {
+                                                    let jsonData;
                                                     try {
-                                                        // Validate JSON before sending
-                                                        let jsonData;
-                                                        try {
-                                                            jsonData = JSON.parse(jsonText);
-                                                            if (!Array.isArray(jsonData)) {
-                                                                throw new Error('JSON data must be an array of sessions');
-                                                            }
-                                                        } catch (parseError) {
-                                                            setImportStatus({
-                                                                type: 'error',
-                                                                message: `Invalid JSON: ${(parseError as Error).message}`
+                                                        jsonData = JSON.parse(jsonText);
+                                                        if (!Array.isArray(jsonData)) {
+                                                            throw new Error('JSON data must be an array of sessions');
+                                                        }
+                                                    } catch (parseError) {
+                                                        setImportStatus({
+                                                            type: 'error',
+                                                                message: `Invalid JSON: ${parseError.message}`
                                                             });
                                                             return;
                                                         }
@@ -458,32 +618,25 @@ export default function SettingsPage() {
                                                                 setImportStatus({
                                                                     type: 'success',
                                                                     message: `Import successful. Server response: ${text}`
-                                                                });
-                                                            } else {
-                                                                throw new Error(`Server error: ${text}`);
-                                                            }
-                                                            return;
-                                                        }
-
-                                                        setImportStatus({
-                                                            type: 'success',
-                                                            message: result.message || 'Import successful'
                                                         });
-                                                    } catch (error) {
-                                                        console.error('Text import error:', error);
-                                                        setImportStatus({
-                                                            type: 'error',
-                                                            message: `Import failed: ${(error as Error).message}`
-                                                        });
+                                                        return;
                                                     }
-                                                }}
-                                            >
-                                                Process JSON Text
-                                            </Button>
-                                        </div>
+
+                                                    await handleDirectJsonImport(jsonData);
+                                                } catch (error) {
+                                                    console.error('Text import error:', error);
+                                                    setImportStatus({
+                                                        type: 'error',
+                                                        message: `Import failed: ${(error as Error).message}`
+                                                    });
+                                                }
+                                            }}
+                                        >
+                                            Process JSON Text
+                                        </Button>
 
                                         {/* Status alerts */}
-                                        {importStatus && (
+                                        {importStatus && !importProgress && (
                                             <Alert className={importStatus.type === 'success' ? 'bg-green-50' : 'bg-red-50'}>
                                                 <AlertTitle>{importStatus.type === 'success' ? 'Success' : 'Error'}</AlertTitle>
                                                 <AlertDescription>{importStatus.message}</AlertDescription>
@@ -502,7 +655,7 @@ export default function SettingsPage() {
                                             value={exportFilename}
                                             onChange={(e) => setExportFilename(e.target.value)}
                                         />
-                                        <Button variant="secondary">
+                                        <Button variant="secondary" onClick={handleExport}>
                                             <Download className="mr-2 h-4 w-4" />
                                             Export
                                         </Button>
