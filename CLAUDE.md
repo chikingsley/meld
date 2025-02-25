@@ -3,11 +3,11 @@
 ## Build & Test Commands
 - Start dev server: `bun dev`
 - Build project: `bun build`
-- Run tests: `pnpm test`
-- Run specific test: `pnpm test -- path/to/test.test.ts`
-- Lint code: `pnpm lint`
-- Start Docker services: `pnpm docker:up`
-- Stop Docker services: `pnpm docker:down`
+- Run tests: `bun test`
+- Run specific test: `bun test -- path/to/test.test.ts`
+- Lint code: `bun lint`
+- Start Docker services: `bun docker:up`
+- Stop Docker services: `bun docker:down`
 
 ## Code Style Guidelines
 - Use TypeScript with strict type checking
