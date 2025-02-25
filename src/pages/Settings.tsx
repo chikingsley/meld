@@ -1,3 +1,4 @@
+// src/pages/Settings.tsx
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -11,12 +12,25 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { PlanToggle } from "@/components/ui/plan-toggle"
 import { useUser, RedirectToSignIn } from "@clerk/clerk-react";
 import { useTitleGeneration } from "@/db/session-store-extension";
-import { useSessionContext } from "@/contexts/SessionContext";
+import { useSessionContext } from "@/db/SessionContext";
+import { useState, useRef } from "react";
+import { Textarea } from "@/components/ui/textarea";
+
+// Import React FilePond
+import { FilePond, registerPlugin } from "react-filepond";
+
+// Import FilePond styles
+import "filepond/dist/filepond.min.css";
 
 export default function SettingsPage() {
     const { user, isLoaded, isSignedIn } = useUser();
     const { batchGenerateTitles } = useTitleGeneration();
     const { isVoiceMode } = useSessionContext();
+    const [files, setFiles] = useState([]);
+    const [exportFilename, setExportFilename] = useState("sessions-backup.json");
+    const [importStatus, setImportStatus] = useState(null);
+    const filepond = useRef(null);
+    const [jsonText, setJsonText] = useState('');
 
     console.log('[SettingsPage] Auth state:', { isLoaded, isSignedIn, userId: user?.id });
 
@@ -34,6 +48,37 @@ export default function SettingsPage() {
         ? `${user.firstName[0]}${user.lastName[0]}`
         : user.emailAddresses[0]?.emailAddress?.[0]?.toUpperCase() || '?';
 
+    // Handle file export
+    const handleExport = async () => {
+        try {
+            const response = await fetch('http://localhost:3001/api/chat/export', {
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'x-user-id': user.id,
+                    'Authorization': `Bearer ${user.token}` // Get token from Clerk
+                }
+            });
+
+            if (!response.ok) {
+                throw new Error(`Export failed: ${response.statusText}`);
+            }
+
+            const blob = await response.blob();
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = exportFilename || 'sessions-backup.json';
+            document.body.appendChild(a);
+            a.click();
+            window.URL.revokeObjectURL(url);
+            document.body.removeChild(a);
+        } catch (error) {
+            console.error('Export error:', error);
+            // Could show an error alert here
+        }
+    };
+
     return (
         <div className="min-h-screen bg-background">
             <div className="container mx-auto p-6">
@@ -50,8 +95,10 @@ export default function SettingsPage() {
                 <div className="grid gap-8 md:grid-cols-[1fr_2fr]">
                     {/* Left Column (1/3) */}
                     <div className="space-y-6">
+                        {/* Avatar Card */}
                         <Card>
                             <CardContent className="pt-6">
+                                {/* Avatar and user details */}
                                 <div className="flex flex-col items-center space-y-4 text-center">
                                     <Avatar className="h-32 w-32">
                                         <AvatarImage
@@ -69,6 +116,7 @@ export default function SettingsPage() {
                             </CardContent>
                         </Card>
 
+                        {/* Other left column cards */}
                         <Card>
                             <CardHeader>
                                 <CardTitle>Contact Us</CardTitle>
@@ -119,12 +167,14 @@ export default function SettingsPage() {
 
                     {/* Right Column (2/3) */}
                     <div className="space-y-6">
+                        {/* Premium card */}
                         <Card>
                             <CardHeader>
                                 <CardTitle>Upgrade to Premium</CardTitle>
                                 <CardDescription>Enhanced therapeutic support and features</CardDescription>
                             </CardHeader>
                             <CardContent>
+                                {/* Premium content */}
                                 <div className="flex justify-between items-center mb-6">
                                     <div className="space-y-1">
                                         <h3 className="text-2xl font-semibold">
@@ -153,6 +203,7 @@ export default function SettingsPage() {
                             </CardContent>
                         </Card>
 
+                        {/* Session History Card - UPDATED WITH FILEPOND */}
                         <Card>
                             <CardHeader>
                                 <CardTitle>Session History</CardTitle>
@@ -161,20 +212,283 @@ export default function SettingsPage() {
                             <CardContent className="space-y-4">
                                 <div className="flex flex-col space-y-2">
                                     <Label>Import from backup</Label>
-                                    <div className="flex space-x-2">
-                                        <Input type="file" className="flex-1" />
-                                        <Button variant="secondary">
-                                            <Upload className="mr-2 h-4 w-4" />
-                                            Import
-                                        </Button>
+                                    <div className="space-y-4">
+                                        {/* FilePond Component */}
+                                        <FilePond
+                                            ref={filepond}
+                                            files={files}
+                                            onupdatefiles={setFiles}
+                                            allowMultiple={false}
+                                            maxFiles={1}
+                                            name="file"
+                                            acceptedFileTypes={['.json', 'application/json']}
+                                            labelIdle='Drag & Drop your JSON backup or <span class="filepond--label-action">Browse</span>'
+                                            server={{
+                                                process: {
+                                                    url: 'http://localhost:3001/api/chat/import',
+                                                    headers: {
+                                                        'x-user-id': user.id,
+                                                        'Authorization': `Bearer ${user.id}`
+                                                    },
+                                                    onload: (response) => {
+                                                        try {
+                                                            const result = JSON.parse(response);
+                                                            setImportStatus({
+                                                                type: 'success',
+                                                                message: result.message
+                                                            });
+                                                        } catch (e) {
+                                                            setImportStatus({
+                                                                type: 'success',
+                                                                message: 'Import successful'
+                                                            });
+                                                        }
+                                                        return response;
+                                                    },
+                                                    onerror: (response) => {
+                                                        console.error('Import error:', response);
+                                                        setImportStatus({
+                                                            type: 'error',
+                                                            message: `Import failed: ${response}`
+                                                        });
+                                                        return response;
+                                                    }
+                                                }
+                                            }}
+                                        />
+
+                                        {/* Fallback Manual Upload */}
+                                        <div className="mt-4">
+                                            <Label className="mb-2 block">Alternative Manual Upload</Label>
+                                            <div className="flex space-x-2">
+                                                <Input
+                                                    type="file"
+                                                    accept=".json,application/json"
+                                                    className="flex-1"
+                                                    onChange={(e) => {
+                                                        if (e.target.files && e.target.files.length > 0) {
+                                                            const selectedFile = e.target.files[0];
+                                                            setFiles([{
+                                                                source: selectedFile,
+                                                                options: { type: 'local' }
+                                                            }]);
+                                                        }
+                                                    }}
+                                                />
+                                                <Button
+                                                    variant="secondary"
+                                                    onClick={async () => {
+                                                        if (!files || files.length === 0) {
+                                                            setImportStatus({
+                                                                type: 'error',
+                                                                message: 'Please select a file first'
+                                                            });
+                                                            return;
+                                                        }
+
+                                                        try {
+                                                            const file = files[0].source;
+                                                            const formData = new FormData();
+                                                            formData.append('file', file);
+
+                                                            const response = await fetch('http://localhost:3001/api/chat/import', {
+                                                                method: 'POST',
+                                                                headers: {
+                                                                    'x-user-id': user.id,
+                                                                    'Authorization': `Bearer ${user.id}`
+                                                                },
+                                                                body: formData
+                                                            });
+
+                                                            if (!response.ok) {
+                                                                throw new Error(`Upload failed: ${response.statusText}`);
+                                                            }
+
+                                                            const result = await response.json();
+                                                            setImportStatus({
+                                                                type: 'success',
+                                                                message: result.message || 'Import successful'
+                                                            });
+                                                        } catch (error) {
+                                                            console.error('Manual upload error:', error);
+                                                            setImportStatus({
+                                                                type: 'error',
+                                                                message: `Import failed: ${(error as Error).message}`
+                                                            });
+                                                        }
+                                                    }}
+                                                >
+                                                    <Upload className="mr-2 h-4 w-4" />
+                                                    Upload
+                                                </Button>
+                                            </div>
+                                        </div>
+
+                                        {/* Direct JSON Import */}
+                                        <div className="mt-4">
+                                            <Label className="mb-2 block">Direct JSON Import</Label>
+                                            <Button
+                                                variant="secondary"
+                                                className="w-full"
+                                                onClick={async () => {
+                                                    if (!files || files.length === 0) {
+                                                        setImportStatus({
+                                                            type: 'error',
+                                                            message: 'Please select a file first'
+                                                        });
+                                                        return;
+                                                    }
+
+                                                    try {
+                                                        const file = files[0].source;
+                                                        const fileContent = await file.text();
+                                                        let jsonData;
+
+                                                        try {
+                                                            jsonData = JSON.parse(fileContent);
+                                                        } catch (parseError) {
+                                                            throw new Error('Invalid JSON format in file');
+                                                        }
+
+                                                        // Send the parsed JSON directly to our API
+                                                        const response = await fetch('http://localhost:3001/api/chat/direct-import', {
+                                                            method: 'POST',
+                                                            headers: {
+                                                                'Content-Type': 'application/json',
+                                                                'x-user-id': user.id,
+                                                                'Authorization': `Bearer ${user.id}`
+                                                            },
+                                                            body: JSON.stringify(jsonData)
+                                                        });
+
+                                                        if (!response.ok) {
+                                                            const errorText = await response.text();
+                                                            throw new Error(`Import failed: ${errorText}`);
+                                                        }
+
+                                                        const result = await response.json();
+                                                        setImportStatus({
+                                                            type: 'success',
+                                                            message: result.message || 'Import successful'
+                                                        });
+                                                    } catch (error) {
+                                                        console.error('Direct JSON import error:', error);
+                                                        setImportStatus({
+                                                            type: 'error',
+                                                            message: `Import failed: ${(error as Error).message}`
+                                                        });
+                                                    }
+                                                }}
+                                            >
+                                                <Upload className="mr-2 h-4 w-4" />
+                                                Process Selected File as JSON
+                                            </Button>
+                                        </div>
+
+                                        // Add this UI section after the other import options
+                                        <div className="mt-6 p-4 border rounded-md bg-gray-50">
+                                            <Label className="text-lg font-semibold">Simple JSON Import</Label>
+                                            <p className="text-sm text-muted-foreground mb-4">
+                                                Paste your JSON directly here to bypass file upload issues.
+                                            </p>
+
+                                            <Textarea
+                                                placeholder="Paste your JSON data here..."
+                                                className="min-h-[200px] mb-4 font-mono text-sm"
+                                                value={jsonText}
+                                                onChange={(e) => setJsonText(e.target.value)}
+                                            />
+
+                                            <Button
+                                                className="w-full"
+                                                onClick={async () => {
+                                                    try {
+                                                        // Validate JSON before sending
+                                                        let jsonData;
+                                                        try {
+                                                            jsonData = JSON.parse(jsonText);
+                                                            if (!Array.isArray(jsonData)) {
+                                                                throw new Error('JSON data must be an array of sessions');
+                                                            }
+                                                        } catch (parseError) {
+                                                            setImportStatus({
+                                                                type: 'error',
+                                                                message: `Invalid JSON: ${parseError.message}`
+                                                            });
+                                                            return;
+                                                        }
+
+                                                        setImportStatus({
+                                                            type: 'info',
+                                                            message: 'Processing import...'
+                                                        });
+
+                                                        const response = await fetch('http://localhost:3001/api/chat/direct-import', {
+                                                            method: 'POST',
+                                                            headers: {
+                                                                'Content-Type': 'application/json',
+                                                                'x-user-id': user.id,
+                                                                'Authorization': `Bearer ${user.id}`
+                                                            },
+                                                            body: jsonText
+                                                        });
+
+                                                        const text = await response.text();
+                                                        let result;
+
+                                                        try {
+                                                            result = JSON.parse(text);
+                                                        } catch (e) {
+                                                            // If response isn't JSON, use the raw text
+                                                            if (response.ok) {
+                                                                setImportStatus({
+                                                                    type: 'success',
+                                                                    message: `Import successful. Server response: ${text}`
+                                                                });
+                                                            } else {
+                                                                throw new Error(`Server error: ${text}`);
+                                                            }
+                                                            return;
+                                                        }
+
+                                                        setImportStatus({
+                                                            type: 'success',
+                                                            message: result.message || 'Import successful'
+                                                        });
+                                                    } catch (error) {
+                                                        console.error('Text import error:', error);
+                                                        setImportStatus({
+                                                            type: 'error',
+                                                            message: `Import failed: ${error.message}`
+                                                        });
+                                                    }
+                                                }}
+                                            >
+                                                Process JSON Text
+                                            </Button>
+                                        </div>
+
+                                        {/* Status alerts */}
+                                        {importStatus && (
+                                            <Alert className={importStatus.type === 'success' ? 'bg-green-50' : 'bg-red-50'}>
+                                                <AlertTitle>{importStatus.type === 'success' ? 'Success' : 'Error'}</AlertTitle>
+                                                <AlertDescription>{importStatus.message}</AlertDescription>
+                                            </Alert>
+                                        )}
                                     </div>
                                 </div>
                                 <Separator />
                                 <div className="flex flex-col space-y-2">
                                     <Label>Export sessions</Label>
                                     <div className="flex space-x-2">
-                                        <Input type="text" placeholder="sessions-backup.json" className="flex-1" />
-                                        <Button variant="secondary">
+                                        <Input
+                                            type="text"
+                                            placeholder="sessions-backup.json"
+                                            className="flex-1"
+                                            value={exportFilename}
+                                            onChange={(e) => setExportFilename(e.target.value)}
+                                        />
+                                        <Button variant="secondary" onClick={handleExport}>
                                             <Download className="mr-2 h-4 w-4" />
                                             Export
                                         </Button>
@@ -184,8 +498,8 @@ export default function SettingsPage() {
                                 <div className="flex flex-col space-y-2">
                                     <Label>Chat Titles</Label>
                                     <div className="flex space-x-2">
-                                        <Button 
-                                            variant="secondary" 
+                                        <Button
+                                            variant="secondary"
                                             className="flex-1"
                                             onClick={async () => {
                                                 if (!user) return;
@@ -200,6 +514,7 @@ export default function SettingsPage() {
                             </CardContent>
                         </Card>
 
+                        {/* Other right column cards */}
                         <Card>
                             <CardHeader>
                                 <CardTitle>Cloud Sync</CardTitle>
@@ -246,4 +561,3 @@ export default function SettingsPage() {
         </div>
     )
 }
-

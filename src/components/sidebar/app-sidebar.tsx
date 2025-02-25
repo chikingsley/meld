@@ -8,7 +8,7 @@ import { TextVoiceSwitch } from "@/components/ui/text-voice-switch"
 import { Sidebar, SidebarContent, SidebarFooter, SidebarHeader, SidebarMenu, SidebarMenuButton, SidebarMenuItem } from "@/components/ui/sidebar"
 import { Button } from "../ui/button"
 import { useNavigate } from "react-router-dom"
-import { useSessionContext } from "@/contexts/SessionContext"
+import { useSessionContext } from "@/db/SessionContext"
 import { SessionHandlerWrapper, useSessionHandlers } from "@/components/sidebar/session-handler"
 
 const SidebarInner = ({ className, ...props }: React.ComponentProps<typeof Sidebar>) => {

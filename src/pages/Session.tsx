@@ -1,6 +1,6 @@
 // src/pages/VoiceSession.tsx
 import ClientComponent from "@/components/chat-window/Chat";
-import { useSessionContext } from "@/contexts/SessionContext"; // Use the context
+import { useSessionContext } from "@/db/SessionContext"; // Use the context
 
 export default function VoiceSession() {
   const {

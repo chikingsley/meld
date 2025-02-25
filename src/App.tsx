@@ -8,7 +8,7 @@ import { Layout } from '@/layout';
 import VoiceSession from '@/pages/Session';
 import Settings from '@/pages/Settings';
 import Test from '@/pages/Test';
-import { SessionProvider } from '@/contexts/SessionContext';
+import { SessionProvider } from '@/db/SessionContext';
 import { useUserConfig } from '@/hooks/useUserConfig';
 import { useUserStore } from '@/stores/useUserStore';
 // import { Analytics } from '@vercel/analytics/react';

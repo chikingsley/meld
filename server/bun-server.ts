@@ -5,8 +5,11 @@ import handleWebhookEvents from './api/clerk/webhook-events'
 import { POST as handleChatCompletionsTest } from './api/chat/clm-sse-server-test'
 import { POST as handleEmotions } from './api/chat/emotions/hume-text-client'
 import { POST as handleTitleGeneration } from './api/chat/title/generate-title'
-import { 
-  handleGetSessions, 
+import { handleChatImport } from './api/database/import-handler';
+import { handleDirectImport } from './api/database/direct-import-handler';
+import { handleChatExport } from './api/database/export-handler';
+import {
+  handleGetSessions,
   handleCreateSession,
   handleDeleteSession,
   handleGetMessages,
@@ -53,12 +56,12 @@ const server = Bun.serve({
 
     // Health check
     if (url.pathname === '/api/health') {
-      return Response.json({ 
+      return Response.json({
         status: 'ok',
         server: 'healthy'
-      }, { 
+      }, {
         status: 200,
-        headers: corsHeaders 
+        headers: corsHeaders
       });
     }
 
@@ -140,6 +143,29 @@ const server = Bun.serve({
     // User endpoints
     if (url.pathname === '/api/me' && req.method === 'GET') {
       // return handleGetMe(req);
+    }
+
+    // Chat history import/export
+    if (url.pathname === '/api/chat/import' && req.method === 'POST') {
+      console.log('Routing to chat import handler');
+      return await withCors(await handleChatImport(req));
+    }
+    // For the direct-import endpoint specifically, update the route to make sure CORS is handled
+    if (url.pathname === '/api/chat/direct-import' && req.method === 'POST') {
+      console.log('Routing to direct chat import handler');
+
+      try {
+        const response = await handleDirectImport(req);
+        // Make sure CORS headers are applied
+        return await withCors(response);
+      } catch (error) {
+        console.error('Error in direct import route:', error);
+        return await withCors(new Response(`Server error: ${error}`, { status: 500 }));
+      }
+    }
+    if (url.pathname === '/api/chat/export' && req.method === 'GET') {
+      console.log('Routing to chat export handler');
+      return await withCors(await handleChatExport(req));
     }
 
     return new Response('Not Found', { status: 404, headers: corsHeaders });

@@ -119,8 +119,19 @@ export const sessionStore = {
     const session = sessions.find(s => s.id === sessionId);
     const messages = session?.messages || [];
     return messages;
+  },
+
+  getAllMessages(userId: string): StoredMessage[] {
+    const sessions = this.getUserSessions(userId);
+    return sessions.flatMap(session => 
+      (session.messages || []).map(message => ({
+        ...message,
+        sessionId: session.id
+      }))
+    );
   }
 };
+
 
 // React hook for session management
 export function useSession() {
