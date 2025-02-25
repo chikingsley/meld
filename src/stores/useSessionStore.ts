@@ -1,3 +1,4 @@
+// src/stores/useSessionStore.ts
 import { create } from 'zustand';
 import type { ConnectionMessage } from '@/lib/connection-message';
 import type { ChatMetadataMessage, JSONMessage } from '@/models/messages';

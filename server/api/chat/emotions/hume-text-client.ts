@@ -1,3 +1,4 @@
+// server/api/chat/emotions/hume-text-client.ts
 import { HumeClient } from "hume";
 
 interface HumeEmotion {

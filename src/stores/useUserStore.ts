@@ -1,3 +1,4 @@
+// src/stores/useUserStore.ts
 import { create } from 'zustand';
 
 interface UserState {
