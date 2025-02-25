@@ -17,7 +17,7 @@ interface BottomControlsProps {
   hasMessages?: boolean;
 }
 
-const BottomControls = React.memo(({ sessionId, hasMessages }: BottomControlsProps) => {
+const BottomControls = React.memo(({ sessionId }: BottomControlsProps) => {
   // Split state subscriptions for better performance
   const { status, connect, disconnect, sendSessionSettings } = useVoice();
   const [isTransitioning, setIsTransitioning] = React.useState(false)
@@ -26,7 +26,7 @@ const BottomControls = React.memo(({ sessionId, hasMessages }: BottomControlsPro
   const { isVoiceMode } = useSessionContext();
 
   // Use text mode handler from hook
-  const { sendMessage: handleTextSubmit, isStreaming: isTextStreaming } = useText({
+  const { sendMessage: handleTextSubmit } = useText({
     messageHistoryLimit: 100
   });
 
@@ -70,7 +70,7 @@ const BottomControls = React.memo(({ sessionId, hasMessages }: BottomControlsPro
   const showVoiceControls = isVoiceMode && (status.value === "connected" || status.value === "connecting" || isTransitioning);
   
   return (
-    <div className="fixed bottom-10 right-0 w-full flex items-center justify-center bg-gradient-to-t from-background via-background/90 to-background/0">
+    <div className="fixed bottom-6 right-0 w-full flex items-center justify-center bg-gradient-to-t from-background via-background/90 to-background/0">
       {isMobile && (
         <Sheet>
           <SheetTrigger asChild>
