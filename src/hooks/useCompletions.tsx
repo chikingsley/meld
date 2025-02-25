@@ -76,12 +76,12 @@ export function useCompletions({ sessionId, onMessage }: CompletionsConfig) {
         onMessage?.({
           type: 'assistant_message',
           id: lastMessage.id,
+          fromText: true,
           message: {
             role: 'assistant',
             content: fullContent
           },
           receivedAt: new Date(lastMessage.choices[0].time?.end || Date.now()),
-          timestamp: new Date(lastMessage.choices[0].time?.end || Date.now()).toISOString(),
           models: {
             prosody: { scores: emotionScores }
           }

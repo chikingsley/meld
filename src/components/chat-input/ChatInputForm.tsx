@@ -161,7 +161,7 @@ export function ChatInputForm({ onSubmit, onStartCall, mode }: ChatInputFormProp
         onSubmit={handleSubmit}
       >
         <div className="flex flex-col gap-1.5 p-4">
-          <div className="flex min-h-[4.5rem]">
+          <div className="flex min-h-[4.5rem] max-h-[200px] overflow-y-auto">
             <textarea
               ref={textareaRef}
               value={inputValue}
@@ -176,7 +176,7 @@ export function ChatInputForm({ onSubmit, onStartCall, mode }: ChatInputFormProp
             />
           </div>
 
-          <div className="flex items-center justify-between pt-2 border-t">
+          <div className="flex items-center justify-between pt-2">
             <div className="flex items-center gap-2">
               <Button 
                 variant="outline" 

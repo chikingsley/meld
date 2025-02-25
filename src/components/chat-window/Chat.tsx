@@ -108,7 +108,7 @@ export default function ClientComponent({ sessionId: urlSessionId }: ClientCompo
                 content: msg.message.content || ''
               },
               prosody: prosodyScores,
-              timestamp: msg.timestamp || msg.receivedAt?.toISOString() || new Date().toISOString(),
+              timestamp: msg.receivedAt?.toISOString() || new Date().toISOString(),
             };
             sessionStore.addMessage(urlSessionId, storedMessage);
           }
