@@ -5,6 +5,7 @@ import { Menu } from "lucide-react"
 import { useVoice } from "@/lib/VoiceProvider"
 import { Button } from "@/components/ui/button"
 import { useIsMobile } from "@/hooks/use-mobile"
+import VoiceControlSkeleton from "./controls/VoiceControlSkeleton"
 import { AnimatePresence, motion } from "framer-motion"
 import Controls from "@/components/chat-input/controls"
 import { ChatInputForm } from "@/components/chat-input/ChatInputForm"
@@ -23,7 +24,7 @@ const BottomControls = React.memo(({ sessionId }: BottomControlsProps) => {
   const [isTransitioning, setIsTransitioning] = React.useState(false)
   const [isPostCall, setIsPostCall] = React.useState(false)
   const isMobile = useIsMobile()
-  const { isVoiceMode, createVoiceSession } = useSessionContext();
+  const { isVoiceMode, createSession } = useSessionContext();
 
   // Use text mode handler from hook
   const { sendMessage: handleTextSubmit } = useText({
@@ -41,7 +42,7 @@ const BottomControls = React.memo(({ sessionId }: BottomControlsProps) => {
     setIsTransitioning(true)
     try {
       // Create a new session for this voice call
-      const newSessionId = await createVoiceSession();
+      const newSessionId = await createSession();
       if (newSessionId) {
         await sendSessionSettings({ customSessionId: newSessionId })
         await connect()
@@ -64,10 +65,10 @@ const BottomControls = React.memo(({ sessionId }: BottomControlsProps) => {
       setIsTransitioning(false)
     }
   }, [disconnect])
-  
+
   // Show voice controls only when in voice mode and connected/connecting
   const showVoiceControls = isVoiceMode && (status.value === "connected" || status.value === "connecting" || isTransitioning);
-  
+
   return (
     <div className="fixed bottom-6 right-0 w-full flex items-center justify-center bg-gradient-to-t from-background via-background/90 to-background/0">
       {isMobile && (
@@ -93,30 +94,34 @@ const BottomControls = React.memo(({ sessionId }: BottomControlsProps) => {
         <div className="w-full max-w-2xl px-4">
           <AnimatePresence mode="wait" initial={false}>
             <motion.div
-                key="control-container"
-                layoutId="control-box"
-                className={cn(
-                  "w-full",
-                  showVoiceControls ? "max-w-sm mx-auto" : ""
-                )}
-                initial={{ y: 100, opacity: 0 }}
-                animate={{ y: 0, opacity: 1 }}
-                exit={{ y: 100, opacity: 0 }}
-                transition={{ 
-                  type: "spring",
-                  damping: 25,
-                  stiffness: 200,
-                  layout: { duration: 0.2 }
-                }}
-              >
-                {showVoiceControls ? (
-                  <Controls onEndCall={handleEndCall} />
-                ) : isVoiceMode ? (
-                  <ChatInputForm onStartCall={handleStartCall} mode="voice" />
+              key="control-container"
+              layoutId="control-box"
+              className={cn(
+                "w-full",
+                showVoiceControls ? "max-w-sm mx-auto" : ""
+              )}
+              initial={{ y: 100, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              exit={{ y: 100, opacity: 0 }}
+              transition={{
+                type: "spring",
+                damping: 25,
+                stiffness: 200,
+                layout: { duration: 0.2 }
+              }}
+            >
+              {showVoiceControls ? (
+                isTransitioning ? (
+                  <VoiceControlSkeleton />
                 ) : (
-                  <ChatInputForm onSubmit={handleTextSubmit} mode="text" />
-                )}
-              </motion.div>
+                  <Controls onEndCall={handleEndCall} isTransitioning={isTransitioning} />
+                )
+              ) : isVoiceMode ? (
+                <ChatInputForm onStartCall={handleStartCall} mode="voice" isLoading={isTransitioning} />
+              ) : (
+                <ChatInputForm onSubmit={handleTextSubmit} mode="text" />
+              )}
+            </motion.div>
           </AnimatePresence>
         </div>
       </div>

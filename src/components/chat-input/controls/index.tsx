@@ -4,6 +4,7 @@ import { EndCallButton } from "./EndCallButton";
 
 interface ControlsProps {
   onEndCall: () => void;
+  isTransitioning?: boolean;
 }
 
 const Controls = memo(({ onEndCall }: ControlsProps) => {

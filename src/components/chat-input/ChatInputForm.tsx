@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { MagnetizeButton } from "@/components/chat-input/controls/magnetize-button";
-import { ArrowRight, Mic, Paperclip } from "lucide-react";
+import { ArrowRight, Mic, Paperclip, Loader2 } from "lucide-react";
 import { cn } from "@/utils";
 
 // Add proper types for Web Speech API
@@ -65,9 +65,10 @@ interface ChatInputFormProps {
   onSubmit?: (text: string) => void;
   onStartCall?: () => Promise<void>;
   mode: 'text' | 'voice';
+  isLoading?: boolean;
 }
 
-export function ChatInputForm({ onSubmit, onStartCall, mode }: ChatInputFormProps) {
+export function ChatInputForm({ onSubmit, onStartCall, mode, isLoading = false }: ChatInputFormProps) {
   const [isListening, setIsListening] = useState(false);
   const [inputValue, setInputValue] = useState("");
   const recognitionRef = useRef<SpeechRecognition | null>(null);
@@ -211,15 +212,25 @@ export function ChatInputForm({ onSubmit, onStartCall, mode }: ChatInputFormProp
             </div>
 
             {mode === 'voice' ? (
-              <MagnetizeButton 
-                className="gap-1.5"
-                onClick={onStartCall}
-                type="button"
-              >
-                Start Call
-                <ArrowRight className="size-3.5" />
-              </MagnetizeButton>
-            ) : (
+            <MagnetizeButton 
+              className="gap-1.5"
+              onClick={onStartCall}
+              type="button"
+              disabled={isLoading}
+            >
+              {isLoading ? (
+                <>
+                  <Loader2 className="size-3.5 animate-spin" />
+                  Connecting...
+                </>
+              ) : (
+                <>
+                  Start Call
+                  <ArrowRight className="size-3.5" />
+                </>
+              )}
+            </MagnetizeButton>
+          ) : (
               <Button 
                 className="gap-1.5" 
                 type="submit"
