@@ -7,7 +7,7 @@ const API_BASE = 'http://localhost:3001';
 // Create a worker for handling background operations
 let worker: Worker | null = null;
 let workerReady = false;
-const pendingTasks: Map<string, { resolve: Function, reject: Function, timeout: number }> = new Map();
+const pendingTasks: Map<string, { resolve: Function, reject: Function, timeout: ReturnType<typeof setTimeout> }> = new Map();
 
 // Initialize the worker
 function initWorker() {

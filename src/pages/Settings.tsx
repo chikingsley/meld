@@ -17,7 +17,7 @@ import { useState, useRef } from "react";
 import { Textarea } from "@/components/ui/textarea";
 
 // Import React FilePond
-import { FilePond, registerPlugin } from "react-filepond";
+import { FilePond } from "react-filepond";
 import type { FilePondFile } from "filepond";
 
 // Import FilePond styles
