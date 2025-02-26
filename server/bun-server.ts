@@ -6,8 +6,6 @@ import { POST as handleChatCompletionsTest } from './api/chat/clm-sse-server-tes
 import { POST as handleEmotions } from './api/chat/emotions/hume-text-client'
 import { POST as handleTitleGeneration } from './api/chat/title/generate-title'
 import { processTranscript } from './api/files/db-service'
-import { handleChatImport } from './api/files/import-handler';
-import { testPrismaConnection } from './api/files/simple-test';
 import {
   handleGetSessions,
   handleCreateSession,
@@ -146,16 +144,8 @@ const server = Bun.serve({
     }
 
     // Chat history import/export
-    if (url.pathname === '/api/chat/import' && req.method === 'POST') {
-      console.log('Routing to chat import handler');
-      return await withCors(await handleChatImport(req));
-    }
     if (url.pathname === '/api/chat/normalize' && req.method === 'POST') {
       return await withCors(await processTranscript(req));
-    }
-
-    if (url.pathname === '/api/database/test' && req.method === 'GET') {
-      return await withCors(await testPrismaConnection(req));
     }
 
     return new Response('Not Found', { status: 404, headers: corsHeaders });

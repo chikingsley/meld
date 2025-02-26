@@ -11,16 +11,35 @@ import Test from '@/pages/Test';
 import { SessionProvider } from '@/db/SessionContext';
 import { useUserConfig } from '@/hooks/useUserConfig';
 import { useUserStore } from '@/stores/useUserStore';
+import { ErrorBoundary } from '@/components/ErrorBoundary';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Loader2 } from 'lucide-react';
 // import { Analytics } from '@vercel/analytics/react';
 const clerkPubKey = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY;
 
 // Inner component that uses Clerk hooks
 function AppContent() {
-  const [accessToken, setAccessToken] = useState<string | null>('');
+  const [accessToken, setAccessToken] = useState<string | null>(null);
+  const [isInitialized, setIsInitialized] = useState(false);
+  const [initError, setInitError] = useState<Error | null>(null);
   const configId = useUserStore((state) => state.configId);
 
   useEffect(() => {
-    getHumeAccessToken().then(setAccessToken);
+    const initialize = async () => {
+      try {
+        const [token] = await Promise.all([
+          getHumeAccessToken(),
+          // Add other initialization tasks here
+        ]);
+        setAccessToken(token);
+        setIsInitialized(true);
+      } catch (error) {
+        console.error('Failed to initialize app:', error);
+        setInitError(error as Error);
+      }
+    };
+
+    initialize();
   }, []);
 
   // Log whenever configId changes
@@ -31,21 +50,41 @@ function AppContent() {
   // This will automatically load configId from Clerk metadata
   useUserConfig();
 
+  if (initError) {
+    return (
+      <Alert variant="destructive" className="m-4">
+        <AlertDescription>
+          Failed to initialize app: {initError.message}
+        </AlertDescription>
+      </Alert>
+    );
+  }
+
+  if (!isInitialized) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <Loader2 className="h-8 w-8 animate-spin" />
+      </div>
+    );
+  }
+
   return (
     <VoiceProvider 
       auth={{ type: 'accessToken', value: accessToken || '' }}
       configId={configId || undefined}
     >
       <SessionProvider>
-        <Routes>
-          <Route path="/" element={<Navigate to="/session" replace />} />
-          <Route element={<Layout />}>
-            <Route path="/session" element={<VoiceSession />} />
-            <Route path="/session/:sessionId" element={<VoiceSession />} />
-            <Route path="/settings" element={<Settings />} />
-            <Route path="/test" element={<Test />} />
-          </Route>
-        </Routes>
+        <ErrorBoundary>
+          <Routes>
+            <Route path="/" element={<Navigate to="/session" replace />} />
+            <Route element={<Layout />}>
+              <Route path="/session" element={<VoiceSession />} />
+              <Route path="/session/:sessionId" element={<VoiceSession />} />
+              <Route path="/settings" element={<Settings />} />
+              <Route path="/test" element={<Test />} />
+            </Route>
+          </Routes>
+        </ErrorBoundary>
       </SessionProvider>
     </VoiceProvider>
   );
@@ -55,8 +94,10 @@ function App() {
   return (
     <BrowserRouter>
       <ClerkProvider publishableKey={clerkPubKey}>
-        <AppContent />
-        {/* <Analytics /> */}
+        <ErrorBoundary>
+          <AppContent />
+          {/* <Analytics /> */}
+        </ErrorBoundary>
       </ClerkProvider>
     </BrowserRouter>
   );

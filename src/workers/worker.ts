@@ -1,4 +1,4 @@
-// src/db/prisma-store.ts
+// src/workers/worker.ts
 import type { StoredMessage, StoredSession } from '@/db/session-store.ts';
 import { useUserStore } from '@/stores/useUserStore';
 

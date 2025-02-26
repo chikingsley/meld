@@ -158,22 +158,6 @@ export default function ClientComponent({ sessionId: urlSessionId, scrollToMessa
     }
   }, [messagesLength, urlSessionId, status.value, user?.id]);
 
-  // Convert stored messages for the current session
-  const convertedStoredMessages = useMemo(() => 
-    storedMessages.map(msg => ({
-      id: createMessageId(msg, urlSessionId || undefined),
-      type: msg.message.role === 'user' ? 'user_message' : 'assistant_message',
-      message: msg.message,
-      models: {
-        prosody: { scores: msg.prosody },
-        expressions: { scores: msg.expressions },
-        labels: { scores: msg.labels }
-      },
-      timestamp: msg.timestamp,
-      sessionId: urlSessionId
-    })), 
-  [storedMessages, urlSessionId]);
-
   // Convert all stored messages across sessions
   const convertedAllStoredMessages = useMemo(() => 
     allStoredMessages.map(msg => ({
