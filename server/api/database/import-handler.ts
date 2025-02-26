@@ -1,5 +1,6 @@
 // server/api/database/import-handler.ts
 import { prisma } from '../../../src/db/prisma';
+import { generateEmbeddings } from '../../../src/utils/RAG/jina-embeddings';
 
 // Define interfaces for expected data formats
 interface ChatMessage {
@@ -101,7 +102,7 @@ async function processWithoutTransactions(userId: string, session: ChatSession, 
 
   if (normalizedMessages.length === 0) {
     console.log('No messages to process');
-    return { sessionId: null, messageCount: 0 };
+    return { sessionId: null, messageCount: 0, embeddingCount: 0 };
   }
 
   console.log(`Processing ${normalizedMessages.length} messages in batches of ${batchSize}`);
@@ -119,11 +120,12 @@ async function processWithoutTransactions(userId: string, session: ChatSession, 
     console.log(`Created session with ID: ${newSession.id}`);
   } catch (error) {
     console.error('Failed to create session:', error);
-    return { sessionId: null, messageCount: 0 };
+    return { sessionId: null, messageCount: 0, embeddingCount: 0 };
   }
 
   // Process messages in smaller batches
   let processedCount = 0;
+  let embeddingCount = 0;
   const totalMessages = normalizedMessages.length;
   const batches = Math.ceil(totalMessages / batchSize);
 
@@ -169,12 +171,23 @@ async function processWithoutTransactions(userId: string, session: ChatSession, 
     console.error('VERIFICATION ERROR:', error);
   }
 
+  // Process messages in batches, generating and storing embeddings for each batch
+  // This helps prevent overwhelming the database and allows for better error handling
+  // Each batch:
+  // 1. Creates messages in the database
+  // 2. Generates embeddings for all messages in the batch
+  // 3. Stores the embeddings in message_vectors table
+  // 4. Adds delays between operations to prevent overload
   for (let i = 0; i < batches; i++) {
     const start = i * batchSize;
     const end = Math.min(start + batchSize, totalMessages);
     const batch = normalizedMessages.slice(start, end);
 
     console.log(`Processing batch ${i + 1}/${batches} (messages ${start} to ${end - 1})`);
+
+    // Collect messages for batch embedding generation
+    const batchTexts: string[] = [];
+    const batchMessages: { id: string; content: string }[] = [];
 
     // Process each message in the batch
     for (const msg of batch) {
@@ -186,7 +199,13 @@ async function processWithoutTransactions(userId: string, session: ChatSession, 
       try {
         // Create message without transaction
         const msgTimestamp = msg.timestamp || msg.created_at || new Date().toISOString();
-        await prisma.message.create({
+        console.log('Creating message with data:', {
+          sessionId: newSession.id,
+          role: msg.message.role,
+          contentPreview: msg.message.content.substring(0, 30) + '...',
+          timestamp: msgTimestamp
+        });
+        const createdMessage = await prisma.message.create({
           data: {
             sessionId: newSession.id,
             role: msg.message.role,
@@ -200,6 +219,16 @@ async function processWithoutTransactions(userId: string, session: ChatSession, 
           }
         });
 
+        // Verify the message was created by its ID
+        console.log(`✅ Message ${processedCount + 1} created with ID: ${createdMessage.id}`);
+
+        // Add message to batch for embedding generation
+        batchTexts.push(msg.message.content);
+        batchMessages.push({
+          id: createdMessage.id,
+          content: msg.message.content
+        });
+
         processedCount++;
       } catch (error) {
         console.error(`Error creating message ${processedCount + 1}:`, error);
@@ -210,7 +239,46 @@ async function processWithoutTransactions(userId: string, session: ChatSession, 
       await delay(10);
     }
 
-    console.log(`Completed batch ${i + 1}/${batches}, processed ${processedCount} messages so far`);
+    console.log(`Final verification for session ${newSession.id}`);
+
+    // Generate and store embeddings for the batch
+    if (batchTexts.length > 0) {
+      try {
+        console.log(`Generating embeddings for ${batchTexts.length} messages`);
+        const embeddings = await generateEmbeddings(batchTexts);
+
+        // Store embeddings
+        for (let j = 0; j < embeddings.length; j++) {
+          const messageId = batchMessages[j].id;
+          const embedding = embeddings[j];
+
+          try {
+            // Create message vector
+            await prisma.messageVector.create({
+              data: {
+                messageId: messageId,
+              }
+            });
+
+            // Store vector data using raw SQL
+            await prisma.$executeRaw`
+              INSERT INTO message_vectors (message_id, embedding)
+              VALUES (${messageId}::uuid, ${JSON.stringify(embedding)}::vector)
+              ON CONFLICT (message_id)
+              DO UPDATE SET embedding = ${JSON.stringify(embedding)}::vector
+            `;
+
+            embeddingCount++;
+          } catch (error) {
+            console.error(`Error storing embedding for message ${messageId}:`, error);
+          }
+        }
+      } catch (error) {
+        console.error('Error generating embeddings for batch:', error);
+      }
+    }
+
+    console.log(`Completed batch ${i + 1}/${batches}, processed ${processedCount} messages, ${embeddingCount} embeddings so far`);
 
     // Add a delay between batches
     if (i < batches - 1) {
@@ -218,7 +286,52 @@ async function processWithoutTransactions(userId: string, session: ChatSession, 
     }
   }
 
-  return { sessionId: newSession.id, messageCount: processedCount };
+  console.log(`Final verification for session ${newSession.id}`);
+  try {
+    const finalMessageCount = await prisma.message.count({
+      where: { sessionId: newSession.id }
+    });
+
+    console.log('FINAL VERIFICATION - Messages in database:', {
+      sessionId: newSession.id,
+      actualCount: finalMessageCount,
+      expectedCount: processedCount
+    });
+
+    if (finalMessageCount > 0) {
+      // Get the first and last message to verify content range
+      const [firstMessage, lastMessage] = await Promise.all([
+        prisma.message.findFirst({
+          where: { sessionId: newSession.id },
+          orderBy: { timestamp: 'asc' }
+        }),
+        prisma.message.findFirst({
+          where: { sessionId: newSession.id },
+          orderBy: { timestamp: 'desc' }
+        })
+      ]);
+
+      console.log('First message in session:', {
+        id: firstMessage?.id,
+        role: firstMessage?.role,
+        contentPreview: firstMessage?.content.substring(0, 30) + '...',
+        timestamp: firstMessage?.timestamp
+      });
+
+      console.log('Last message in session:', {
+        id: lastMessage?.id,
+        role: lastMessage?.role,
+        contentPreview: lastMessage?.content.substring(0, 30) + '...',
+        timestamp: lastMessage?.timestamp
+      });
+    } else {
+      console.log('❌ NO MESSAGES FOUND IN THE SESSION AFTER PROCESSING');
+    }
+  } catch (error) {
+    console.error('Error in final verification:', error);
+  }
+
+  return { sessionId: newSession.id, messageCount: processedCount, embeddingCount };
 }
 
 export async function handleChatImport(req: Request) {
@@ -385,24 +498,27 @@ export async function handleChatImport(req: Request) {
     // Process each session non-transactionally
     let totalSessions = 0;
     let totalMessages = 0;
+    let totalEmbeddings = 0;
 
     try {
       // Process each session one at a time
       for (const session of chatSessions) {
-        const { sessionId, messageCount } = await processWithoutTransactions(userId, session, 10);
+        const { sessionId, messageCount, embeddingCount } = await processWithoutTransactions(userId, session, 10);
 
         if (sessionId) {
           totalSessions++;
           totalMessages += messageCount;
+          totalEmbeddings += embeddingCount;
         }
       }
 
-      console.log(`Import completed successfully: ${totalSessions} sessions, ${totalMessages} messages`);
+      console.log(`Import completed successfully: ${totalSessions} sessions, ${totalMessages} messages, ${totalEmbeddings} embeddings`);
       return Response.json({
         success: true,
-        message: `Successfully imported ${totalSessions} sessions with ${totalMessages} messages`,
+        message: `Successfully imported ${totalSessions} sessions with ${totalMessages} messages (${totalEmbeddings} embeddings)`,
         sessions: totalSessions,
-        messages: totalMessages
+        messages: totalMessages,
+        embeddings: totalEmbeddings
       });
     } catch (error) {
       console.error('Error importing chat history:', error);
