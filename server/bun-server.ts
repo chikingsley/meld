@@ -5,9 +5,9 @@ import handleWebhookEvents from './api/clerk/webhook-events'
 import { POST as handleChatCompletionsTest } from './api/chat/clm-sse-server-test'
 import { POST as handleEmotions } from './api/chat/emotions/hume-text-client'
 import { POST as handleTitleGeneration } from './api/chat/title/generate-title'
-import { handleChatImport } from './api/database/import-handler';
-import { handleDirectImport } from './api/database/direct-import-handler';
-import { testPrismaConnection } from './api/database/simple-test';
+import { processTranscript } from './api/files/db-service'
+import { handleChatImport } from './api/files/import-handler';
+import { testPrismaConnection } from './api/files/simple-test';
 import {
   handleGetSessions,
   handleCreateSession,
@@ -150,19 +150,10 @@ const server = Bun.serve({
       console.log('Routing to chat import handler');
       return await withCors(await handleChatImport(req));
     }
-    // For the direct-import endpoint specifically, update the route to make sure CORS is handled
-    if (url.pathname === '/api/chat/direct-import' && req.method === 'POST') {
-      console.log('Routing to direct chat import handler');
-
-      try {
-        const response = await handleDirectImport(req);
-        // Make sure CORS headers are applied
-        return await withCors(response);
-      } catch (error) {
-        console.error('Error in direct import route:', error);
-        return await withCors(new Response(`Server error: ${error}`, { status: 500 }));
-      }
+    if (url.pathname === '/api/chat/normalize' && req.method === 'POST') {
+      return await withCors(await processTranscript(req));
     }
+
     if (url.pathname === '/api/database/test' && req.method === 'GET') {
       return await withCors(await testPrismaConnection(req));
     }

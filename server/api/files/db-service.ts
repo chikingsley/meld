@@ -175,7 +175,6 @@ export async function processTranscript(req: Request) {
 
         let totalSessions = 0;
         let totalMessages = 0;
-        const MAX_MESSAGES = 5;
 
         for (const session of normalizedSessions) {
             console.log("Processing session:", session.name || session.uuid || "Unnamed session");
@@ -184,29 +183,16 @@ export async function processTranscript(req: Request) {
 
             const messages = session.chat_messages || session.messages || [];
             for (const msg of messages) {
-                // Stop processing if we've hit the message limit
-                if (totalMessages >= MAX_MESSAGES) {
-                    console.log(`Reached maximum message limit of ${MAX_MESSAGES}. Stopping message processing.`);
-                    break;
-                }
-
                 await addMessage(createdSession.id, msg);
                 totalMessages++;
-            }
-
-            // Stop processing sessions if we've hit the message limit
-            if (totalMessages >= MAX_MESSAGES) {
-                console.log(`Reached maximum message limit of ${MAX_MESSAGES}. Skipping remaining sessions.`);
-                break;
             }
         }
 
         return Response.json({
             success: true,
-            message: `Successfully imported ${totalSessions} sessions with ${totalMessages} messages (limited to ${MAX_MESSAGES})`,
+            message: `Successfully imported ${totalSessions} sessions with ${totalMessages} messages`,
             sessionCount: totalSessions,
-            messageCount: totalMessages,
-            maxMessagesLimit: MAX_MESSAGES
+            messageCount: totalMessages
         });
     } catch (error) {
         console.error("Error in processTranscript:", error);

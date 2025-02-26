@@ -190,6 +190,7 @@ export default function SettingsPage() {
                                 <div className="flex flex-col space-y-2">
                                     <Label>Import from backup</Label>
                                     <div className="space-y-4">
+                                        
                                         {/* FilePond Component */}
                                         <FilePond
                                             ref={filepond}
@@ -203,37 +204,75 @@ export default function SettingsPage() {
                                             acceptedFileTypes={['.json', 'application/json']}
                                             labelIdle='Drag & Drop your JSON backup or <span class="filepond--label-action">Browse</span>'
                                             server={{
-                                                process: {
-                                                    url: 'http://localhost:3001/api/chat/import',
-                                                    headers: {
-                                                        'x-user-id': user.id,
-                                                        'Authorization': `Bearer ${user.id}`
-                                                    },
-                                                    onload: (response) => {
-                                                        console.log('FilePond upload response:', response);
+                                                process: (
+                                                    fieldName: string,
+                                                    file: Blob,
+                                                    metadata: any,
+                                                    load: (responseText: string) => void,
+                                                    error: (errorText: string) => void,
+                                                    progress: (computable: boolean, loaded: number, total: number) => void,
+                                                    abort: () => void
+                                                ) => {
+                                                    // Create an AbortController for cancellation
+                                                    const abortController = new AbortController();
+                                                    
+                                                    const formData = new FormData();
+                                                    formData.append(fieldName, file, (file as any).name);
+
+                                                    fetch('http://localhost:3001/api/chat/normalize', {
+                                                        method: 'POST',
+                                                        headers: {
+                                                            'x-user-id': user.id,
+                                                            'Authorization': `Bearer ${user.id}`,
+                                                        },
+                                                        body: formData,
+                                                        signal: abortController.signal
+                                                    })
+                                                    .then((res) => res.text())
+                                                    .then((responseText) => {
+                                                        console.log('Custom process response:', responseText);
                                                         try {
-                                                            const result = JSON.parse(response);
-                                                            setImportStatus({
-                                                                type: result.success ? 'success' : 'error',
-                                                                message: result.message
-                                                            });
+                                                            const result = JSON.parse(responseText);
+                                                            if (result.success) {
+                                                                load(responseText);
+                                                                setImportStatus({
+                                                                    type: 'success',
+                                                                    message: result.message || 'Import successful'
+                                                                });
+                                                            } else {
+                                                                error(result.message || 'Import failed');
+                                                                setImportStatus({
+                                                                    type: 'error',
+                                                                    message: result.message || 'Import failed'
+                                                                });
+                                                            }
                                                         } catch (e) {
-                                                            console.error('Error parsing FilePond response:', e);
+                                                            error('Failed to parse server response');
                                                             setImportStatus({
                                                                 type: 'error',
-                                                                message: 'Error processing server response: ' + response
+                                                                message: 'Failed to parse server response'
                                                             });
                                                         }
-                                                        return response;
-                                                    },
-                                                    onerror: (response) => {
-                                                        console.error('FilePond upload error:', response);
+                                                    })
+                                                    .catch((err) => {
+                                                        console.error('Custom process error:', err);
+                                                        error('Upload failed');
                                                         setImportStatus({
                                                             type: 'error',
-                                                            message: `Import failed: ${response}`
+                                                            message: `Upload failed: ${err.message}`
                                                         });
-                                                        return response;
-                                                    }
+                                                    });
+
+                                                    // Return abort handler
+                                                    return {
+                                                        abort: () => {
+                                                            abortController.abort();
+                                                            setImportStatus({
+                                                                type: 'info',
+                                                                message: 'Upload cancelled'
+                                                            });
+                                                        }
+                                                    };
                                                 }
                                             }}
                                         />
@@ -281,7 +320,7 @@ export default function SettingsPage() {
                                                             console.log('Sending data to direct-import:', jsonData);
 
                                                             const token = await getToken();
-                                                            const response = await fetch('http://localhost:3001/api/chat/direct-import', {
+                                                            const response = await fetch('http://localhost:3001/api/chat/normalize', {
                                                                 method: 'POST',
                                                                 headers: {
                                                                     'Content-Type': 'application/json',
@@ -365,7 +404,7 @@ export default function SettingsPage() {
                                                         }
 
                                                         // Send the parsed JSON directly to our API
-                                                        const response = await fetch('http://localhost:3001/api/chat/direct-import', {
+                                                        const response = await fetch('http://localhost:3001/api/chat/normalize', {
                                                             method: 'POST',
                                                             headers: {
                                                                 'Content-Type': 'application/json',
@@ -437,7 +476,7 @@ export default function SettingsPage() {
                                                             message: 'Processing import...'
                                                         });
 
-                                                        const response = await fetch('http://localhost:3001/api/chat/direct-import', {
+                                                        const response = await fetch('http://localhost:3001/api/chat/normalize', {
                                                             method: 'POST',
                                                             headers: {
                                                                 'Content-Type': 'application/json',
