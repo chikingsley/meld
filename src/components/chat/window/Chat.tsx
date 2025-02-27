@@ -254,47 +254,6 @@ export default function ClientComponent({ sessionId: urlSessionId, scrollToMessa
     })),
     [messages, urlSessionId]);
 
-  // OLD VERSION - Combine and deduplicate all messages
-  // const combinedMessages = useMemo(() => {
-  //   const messageMap = new Map();
-
-  //   // First add API messages if available (highest priority)
-  //   const convertedApiMessages = apiMessages.map(msg => ({
-  //     id: createMessageId(msg, urlSessionId || undefined),
-  //     type: msg.message.role === 'user' ? 'user_message' : 'assistant_message',
-  //     message: msg.message,
-  //     models: {
-  //       prosody: { scores: msg.prosody },
-  //       expressions: { scores: msg.expressions },
-  //       labels: { scores: msg.labels }
-  //     },
-  //     timestamp: msg.timestamp,
-  //     sessionId: urlSessionId
-  //   }));
-
-  //   convertedApiMessages.forEach(msg => {
-  //     if (msg.id) {
-  //       messageMap.set(msg.id, msg);
-  //     }
-  //   });
-
-  //   // Then add messages from all sessions
-  //   convertedAllMessages.forEach(msg => {
-  //     if (msg.id) {
-  //       messageMap.set(msg.id, msg);
-  //     }
-  //   });
-
-  //   // Then add current session's messages, which will override if there are duplicates
-  //   messagesWithIds.forEach(msg => {
-  //     if (msg.id) {
-  //       messageMap.set(msg.id, msg);
-  //     }
-  //   });
-
-  //   return Array.from(messageMap.values());
-  // }, [convertedAllMessages, messagesWithIds]);
-
   // NEW VERSION - Combine all messages but keep all duplicates
   const combinedMessages = useMemo(() => {
     const messageMap = new Map();
