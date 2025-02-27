@@ -1,6 +1,6 @@
 // src/hooks/useCompletions.ts
 import { useCallback, useState } from 'react';
-import type { JSONMessage } from '@/models/messages';
+import type { JSONMessage } from '@/types/hume-messages';
 
 interface CompletionsConfig {
   sessionId: string;

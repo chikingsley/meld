@@ -14,12 +14,6 @@ interface EmbeddingOptions {
 
 async function processBatch(batch: string[], task: JinaTask): Promise<number[][]> {
   try {
-    console.log('Generating embeddings for batch:', {
-      batchSize: batch.length,
-      task,
-      firstContent: batch[0]?.substring(0, 50) + '...'
-    });
-
     const response = await fetch('https://api.jina.ai/v1/embeddings', {
       method: 'POST',
       headers: {
@@ -58,11 +52,6 @@ async function processBatch(batch: string[], task: JinaTask): Promise<number[][]
       throw new Error('Invalid embeddings returned from API');
     }
 
-    console.log('Successfully generated embeddings:', {
-      count: embeddings.length,
-      dimensions: embeddings[0]?.length
-    });
-
     return embeddings;
   } catch (error) {
     console.error('Error in processBatch:', error);
@@ -85,12 +74,6 @@ export async function generateEmbeddings(inputs: string[], options?: EmbeddingOp
     for (let i = 0; i < validInputs.length; i += BATCH_SIZE) {
       batches.push(validInputs.slice(i, i + BATCH_SIZE));
     }
-
-    console.log('Processing embeddings:', {
-      totalInputs: validInputs.length,
-      batchCount: batches.length,
-      batchSize: BATCH_SIZE
-    });
 
     const results: number[][] = [];
     for (const batch of batches) {

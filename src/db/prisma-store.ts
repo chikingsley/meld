@@ -1,5 +1,6 @@
 // src/db/prisma-store.ts
-import type { StoredMessage, StoredSession } from './session-store';
+import type { StoredSession } from './session-store';
+import { Message } from '@/types/messages';
 import { useUserStore } from '@/stores/useUserStore';
 
 const API_BASE = 'http://localhost:3001';
@@ -100,7 +101,7 @@ export const prismaStore = {
     }
   },
 
-  async addMessage(sessionId: string, message: StoredMessage): Promise<Response> {
+  async addMessage(sessionId: string, message: Message): Promise<Response> {
     try {
       const url = `${API_BASE}/api/sessions/${sessionId}/messages`;
       const headers = await getHeaders();
@@ -125,7 +126,7 @@ export const prismaStore = {
     }
   },
 
-  async getMessages(sessionId: string): Promise<StoredMessage[]> {
+  async getMessages(sessionId: string): Promise<Message[]> {
     try {
       const headers = await getHeaders();
       const response = await fetch(`${API_BASE}/api/sessions/${sessionId}/messages`, { headers });
@@ -139,25 +140,43 @@ export const prismaStore = {
 
   async storeEmbedding(messageId: string, content: string): Promise<void> {
     try {
+      if (!messageId || !content) {
+        console.error('[prismaStore] Missing required fields:', { messageId, content });
+        throw new Error('Missing required fields for embedding storage');
+      }
+
       const headers = await getHeaders();
+      const payload = { messageId, content };
+      console.log('[prismaStore] Storing embedding with payload:', payload);
+
       const response = await fetch(`${API_BASE}/api/embeddings/store`, {
         method: 'POST',
         headers,
-        body: JSON.stringify({ messageId, content })
+        body: JSON.stringify(payload)
       });
-      console.log('Stored embedding');
+
       if (!response.ok) {
         const errorText = await response.text();
+        console.error('[prismaStore] Embedding storage failed:', {
+          status: response.status,
+          statusText: response.statusText,
+          error: errorText,
+          payload
+        });
         throw new Error(`Failed to store embedding: ${response.status} ${response.statusText} - ${errorText}`);
       }
       
       const result = await response.json();
+      console.log('[prismaStore] Embedding storage response:', result);
+
       if (!result) {
         throw new Error('No response data from embedding storage');
       }
+
+      console.log('[prismaStore] Successfully stored embedding for message:', messageId);
     } catch (error) {
       console.error('[prismaStore] Failed to store embedding:', error);
-      throw error; // Rethrow so we can debug the issue
+      throw error;
     }
   }
 };

@@ -1,5 +1,6 @@
 // src/workers/worker.ts
-import type { StoredMessage, StoredSession } from '@/db/session-store.ts';
+import type { StoredSession } from '@/db/session-store.ts';
+import { Message } from '@/types/messages';
 import { useUserStore } from '@/stores/useUserStore';
 
 const API_BASE = 'http://localhost:3001';
@@ -215,7 +216,7 @@ export const prismaStore = {
     }
   },
 
-  async addMessage(sessionId: string, message: StoredMessage): Promise<Response> {
+  async addMessage(sessionId: string, message: Message): Promise<Response> {
     console.log('🔧 Adding message using worker thread:', { sessionId });
     
     try {
@@ -260,7 +261,7 @@ export const prismaStore = {
     }
   },
 
-  async getMessages(sessionId: string): Promise<StoredMessage[]> {
+  async getMessages(sessionId: string): Promise<Message[]> {
     try {
       const headers = await getHeaders();
       const response = await fetch(`${API_BASE}/api/sessions/${sessionId}/messages`, { headers });

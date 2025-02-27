@@ -75,13 +75,9 @@ export async function handleDeleteSession(req: Request) {
     }
 
     // Verify session belongs to user
-    console.log('Looking up session in database:', {
-      where: { id: sessionId, userId }
-    });
     const session = await prisma.session.findFirst({
       where: { id: sessionId, userId }
     });
-    console.log('Session lookup result:', session);
 
     if (!session) {
       return new Response('Session not found', { status: 404 });
@@ -100,7 +96,6 @@ export async function handleDeleteSession(req: Request) {
 
 // Get messages for a session
 export async function handleGetMessages(req: Request) {
-  console.log('Received get messages request:', req.url);
   try {
     const userId = req.headers.get('x-user-id');
     if (!userId) {
@@ -109,24 +104,15 @@ export async function handleGetMessages(req: Request) {
 
     const url = new URL(req.url);
     const sessionId = url.pathname.split('/')[3]; // /api/sessions/:id/messages
-    console.log('Looking up session:', {
-      sessionId,
-      userId,
-      pathname: url.pathname
-    });
 
     if (!sessionId) {
       return new Response('Session ID required', { status: 400 });
     }
 
     // Verify session belongs to user
-    console.log('Looking up session in database:', {
-      where: { id: sessionId, userId }
-    });
     const session = await prisma.session.findFirst({
       where: { id: sessionId, userId }
     });
-    console.log('Session lookup result:', session);
 
     if (!session) {
       return new Response('Session not found', { status: 404 });
@@ -147,7 +133,6 @@ export async function handleGetMessages(req: Request) {
 // Add a message to a session
 // Update a session
 export async function handleUpdateSession(req: Request) {
-  console.log('Received update session request:', req.url);
   try {
     const userId = req.headers.get('x-user-id');
     if (!userId) {
@@ -162,13 +147,9 @@ export async function handleUpdateSession(req: Request) {
     }
 
     // Verify session belongs to user
-    console.log('Looking up session in database:', {
-      where: { id: sessionId, userId }
-    });
     const session = await prisma.session.findFirst({
       where: { id: sessionId, userId }
     });
-    console.log('Session lookup result:', session);
 
     if (!session) {
       return new Response('Session not found', { status: 404 });
@@ -192,7 +173,6 @@ export async function handleUpdateSession(req: Request) {
 }
 
 export async function handleAddMessage(req: Request) {
-  console.log('Received message request for URL:', req.url);
   try {
     const userId = req.headers.get('x-user-id');
     if (!userId) {
@@ -201,31 +181,21 @@ export async function handleAddMessage(req: Request) {
 
     const url = new URL(req.url);
     const sessionId = url.pathname.split('/')[3]; // /api/sessions/:id/messages
-    console.log('Looking up session:', {
-      sessionId,
-      userId,
-      pathname: url.pathname
-    });
 
     if (!sessionId) {
       return new Response('Session ID required', { status: 400 });
     }
 
     // Verify session belongs to user
-    console.log('Looking up session in database:', {
-      where: { id: sessionId, userId }
-    });
     const session = await prisma.session.findFirst({
       where: { id: sessionId, userId }
     });
-    console.log('Session lookup result:', session);
 
     if (!session) {
       return new Response('Session not found', { status: 404 });
     }
 
     const body = await req.json();
-    console.log('Request body:', body);
     
     // Extract fields from message structure
     const { message, expressions, labels, prosody, timestamp } = body;
@@ -245,7 +215,7 @@ export async function handleAddMessage(req: Request) {
       }
     });
 
-    console.log('Created message:', newMessage);
+    console.log('Created message:', newMessage.content);
 
     return Response.json(newMessage);
   } catch (error) {

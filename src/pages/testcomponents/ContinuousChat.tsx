@@ -2,8 +2,8 @@
 import Messages from "@/components/chat-window/Messages";
 import BottomControls from "@/components/chat-input/BottomControls";
 import { ComponentRef, useEffect, useRef, useState, useMemo } from "react";
-import type { JSONMessage } from "@/models/messages";
-import type { ConnectionMessage } from "@/lib/connection-message";
+import type { JSONMessage } from "@/types/hume-messages";
+import type { ConnectionMessage } from "@/lib/hume/connection-message";
 import { useUser } from '@clerk/clerk-react';
 import { format, isToday, isYesterday, isSameWeek, isSameYear } from 'date-fns';
 

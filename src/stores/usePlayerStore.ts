@@ -1,3 +1,4 @@
+// src/stores/usePlayerStore.ts
 import { create } from 'zustand';
 
 interface PlayerState {

@@ -42,7 +42,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useNavigate } from "react-router-dom";
 import { format, isToday, isYesterday, isSameWeek, parseISO } from "date-fns";
 import { sessionStore, StoredSession } from "@/db/session-store";
-import { useSessionContext } from "@/lib/SessionProvider";
+import { useSessionContext } from "@/providers/SessionProvider";
 import { useVoiceDisconnect } from "@/components/sidebar/session-handler";
 
 // Types for timeline items and memories

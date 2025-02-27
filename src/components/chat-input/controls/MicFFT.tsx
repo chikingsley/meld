@@ -1,5 +1,5 @@
 // src/components/chat-input/MicFFT.tsx
-import { cn } from "@/utils";
+import { cn } from "@/utils/classNames";
 import React, { useEffect, useRef } from "react";
 import { AutoSizer } from "react-virtualized";
 

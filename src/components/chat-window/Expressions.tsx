@@ -1,6 +1,5 @@
 import { Hume } from "hume";
-import { expressionColors, isExpressionColor } from "./expressions-utils/expressionColors";
-import { expressionLabels } from "./expressions-utils/expressionLabels";
+import { expressionColors, isExpressionColor, expressionLabels } from "@/types/expressions.ts";
 import { motion } from "framer-motion";
 import * as R from "remeda";
 
@@ -56,39 +55,6 @@ export default function Expressions({
           </div>
         ))}
       </div>
-
-      {/* Emotion chart - small visualization of all emotions */}
-      {/* <div className="mt-3 pt-2 border-t border-border/30">
-        <div className="flex gap-1 flex-wrap justify-center">
-          {R.pipe(
-            values,
-            R.entries(),
-            R.sortBy(R.pathOr([1], 0)),
-            R.reverse(),
-            R.take(10),
-            R.map(([key, value]) => (
-              <div
-                key={key}
-                className="tooltip-wrapper relative group"
-                style={{ width: "14px" }}
-              >
-                <motion.div
-                  className="w-3 rounded-sm"
-                  style={{
-                    backgroundColor: isExpressionColor(key) ? expressionColors[key] : "#879aa1",
-                    height: `${Math.max(4, value * 24)}px`,
-                  }}
-                  initial={{ height: 0 }}
-                  animate={{ height: `${Math.max(4, value * 24)}px` }}
-                />
-                <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-1 px-2 py-1 bg-black text-white text-[10px] rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-10">
-                  {expressionLabels[key]}: {(value * 100).toFixed(1)}%
-                </div>
-              </div>
-            ))
-          )}
-        </div>
-      </div> */}
     </div >
   );
 }

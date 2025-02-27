@@ -6,7 +6,7 @@ import type { MeydaFeaturesObject } from 'meyda';
 import { useCallback, useEffect, useRef } from 'react';
 import type { MutableRefObject } from 'react';
 
-import { generateEmptyFft } from '@/lib/generateEmptyFTT';
+import { generateEmptyFft } from '@/lib/hume/generateEmptyFTT';
 import { useFFTStore } from '@/stores/useFFTStore';
 import { useMuteStore } from '@/stores/useMuteStore';
 

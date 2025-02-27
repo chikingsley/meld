@@ -1,5 +1,5 @@
 // src/App.tsx
-import { VoiceProvider } from '@/lib/VoiceProvider';
+import { VoiceProvider } from '@/providers/VoiceProvider';
 import { useEffect, useState } from 'react';
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 import { ClerkProvider } from '@clerk/react-router'
@@ -8,7 +8,7 @@ import { Layout } from '@/layout';
 import Session from '@/pages/Session';
 import Settings from '@/pages/Settings';
 import Test from '@/pages/Test';
-import { SessionProvider } from '@/lib/SessionProvider';
+import { SessionProvider } from '@/providers/SessionProvider';
 import { useUserConfig } from '@/hooks/useUserConfig';
 import { useUserStore } from '@/stores/useUserStore';
 import { ErrorBoundary } from '@/components/ErrorBoundary';

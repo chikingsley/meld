@@ -1,3 +1,4 @@
+// src/stores/useMuteStore.ts
 import { create } from 'zustand';
 
 interface MuteState {

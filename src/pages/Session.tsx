@@ -2,7 +2,7 @@
 import { useEffect } from "react";
 import { useParams } from "react-router-dom";
 import ClientComponent from "@/components/chat-window/Chat";
-import { useSessionContext } from "@/lib/SessionProvider";
+import { useSessionContext } from "@/providers/SessionProvider";
 
 export default function Session() {
   const {

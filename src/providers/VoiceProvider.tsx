@@ -1,4 +1,4 @@
-// src/lib/hume-lib/VoiceProviderOld.tsx
+// src/providers/VoiceProvider.tsx
 import { type Hume } from 'hume';
 import {
   createContext,
@@ -12,28 +12,27 @@ import {
   useState,
 } from 'react';
 
-import { ConnectionMessage } from './connection-message';
-import { noop } from './noop';
-import { useCallDuration } from './hooks/useCallDuration';
-import { useEncoding } from './hooks/useEncoding';
-import { useMessages } from './hooks/useMessages';
-import { useMicrophone } from './hooks/useMicrophone';
-import { useSoundPlayer } from './hooks/useSoundPlayer';
-import { useToolStatus } from './hooks/useToolStatus';
+import { noop } from '@/lib/hume/noop';
+import { useCallDuration } from '../hooks/useCallDuration';
+import { useEncoding } from '../hooks/useEncoding';
+import { useMessages } from '../hooks/useMessages';
+import { useMicrophone } from '../hooks/useMicrophone';
+import { useSoundPlayer } from '../hooks/useSoundPlayer';
+import { useToolStatus } from '../hooks/useToolStatus';
+import { usePlayerStore } from '@/stores/usePlayerStore';
 import {
   SocketConfig,
   ToolCallHandler,
   useVoiceClient,
   VoiceReadyState,
-} from './hooks/useVoiceClient';
+} from '../hooks/useVoiceClient';
 import {
   AssistantTranscriptMessage,
   AudioOutputMessage,
-  ChatMetadataMessage,
   JSONMessage,
   UserInterruptionMessage,
   UserTranscriptMessage,
-} from './models/messages';
+} from '../types/hume-messages';
 
 type VoiceError =
   | { type: 'socket_error'; message: string; error?: Error }
@@ -42,27 +41,20 @@ type VoiceError =
 
 type VoiceStatus =
   | {
-      value: 'disconnected' | 'connecting' | 'connected';
-      reason?: never;
-    }
+    value: 'disconnected' | 'disconnecting' | 'connecting' | 'connected';
+    reason?: never;
+  }
   | {
-      value: 'error';
-      reason: string;
-    };
+    value: 'error';
+    reason: string;
+  };
 
 export type VoiceContextType = {
   connect: () => Promise<void>;
   disconnect: () => void;
-  fft: number[];
-  isMuted: boolean;
-  isAudioMuted: boolean;
-  isPlaying: boolean;
-  messages: (JSONMessage | ConnectionMessage)[];
   lastVoiceMessage: AssistantTranscriptMessage | null;
   lastUserMessage: UserTranscriptMessage | null;
   clearMessages: () => void;
-  mute: () => void;
-  unmute: () => void;
   muteAudio: () => void;
   unmuteAudio: () => void;
   readyState: VoiceReadyState;
@@ -77,7 +69,6 @@ export type VoiceContextType = {
   pauseAssistant: () => void;
   resumeAssistant: () => void;
   status: VoiceStatus;
-  micFft: number[];
   error: VoiceError | null;
   isAudioError: boolean;
   isError: boolean;
@@ -85,8 +76,6 @@ export type VoiceContextType = {
   isSocketError: boolean;
   callDurationTimestamp: string | null;
   toolStatusStore: ReturnType<typeof useToolStatus>['store'];
-  chatMetadata: ChatMetadataMessage | null;
-  playerQueueLength: number;
   isPaused: boolean;
 };
 
@@ -144,13 +133,11 @@ export const VoiceProvider: FC<VoiceProviderProps> = ({
   });
 
   const [isPaused, setIsPaused] = useState(false);
+  const [isConnecting, setIsConnecting] = useState(false);
 
   // error handling
   const [error, setError] = useState<VoiceError | null>(null);
   const isError = error !== null;
-  const isMicrophoneError = error?.type === 'mic_error';
-  const isSocketError = error?.type === 'socket_error';
-  const isAudioError = error?.type === 'audio_error';
 
   const onError = useRef(props.onError ?? noop);
   onError.current = props.onError ?? noop;
@@ -216,19 +203,20 @@ export const VoiceProvider: FC<VoiceProviderProps> = ({
 
   const client = useVoiceClient({
     onAudioMessage: (message: AudioOutputMessage) => {
+      // console.log('[VoiceProvider] Received audio message, adding to queue');
       player.addToQueue(message);
       onAudioReceived.current(message);
     },
     onMessage: useCallback(
       (message: JSONMessage) => {
-        // store message
+        // console.log('[VoiceProvider] Received message:', message.type);
         messageStore.onMessage(message);
 
         if (
           message.type === 'user_interruption' ||
           message.type === 'user_message'
         ) {
-          if (player.isPlaying) {
+          if (usePlayerStore.getState().isPlaying) {
             onInterruption.current(message);
           }
           player.clearQueue();
@@ -239,6 +227,7 @@ export const VoiceProvider: FC<VoiceProviderProps> = ({
           message.type === 'tool_response' ||
           message.type === 'tool_error'
         ) {
+          // console.log('[VoiceProvider] Processing tool message:', message.type);
           toolStatus.addToStore(message);
         }
       },
@@ -246,6 +235,7 @@ export const VoiceProvider: FC<VoiceProviderProps> = ({
     ),
     onError: onClientError,
     onOpen: useCallback(() => {
+      console.log('[VoiceProvider] WebSocket connection opened');
       startTimer();
       messageStore.createConnectMessage();
       props.onOpen?.();
@@ -254,6 +244,7 @@ export const VoiceProvider: FC<VoiceProviderProps> = ({
       NonNullable<Hume.empathicVoice.chat.ChatSocket.EventHandlers['close']>
     >(
       (event) => {
+        console.log('[VoiceProvider] WebSocket connection closed');
         stopTimer();
         messageStore.createDisconnectMessage(event);
         onClose.current?.(event);
@@ -318,64 +309,137 @@ export const VoiceProvider: FC<VoiceProviderProps> = ({
   }, [sendResumeAssistantMessage, updateError]);
 
   const connect = useCallback(async () => {
+    if (isConnecting) {
+      console.log('[VoiceProvider] Connection already in progress');
+      return Promise.reject(new Error('Connection already in progress'));
+    }
+
+    if (status.value === 'connected') {
+      console.log('[VoiceProvider] Already connected');
+      return Promise.resolve();
+    }
+
+    console.log('[VoiceProvider] Initiating connection...');
+    setIsConnecting(true);
     updateError(null);
     setStatus({ value: 'connecting' });
-    const permission = await getStream();
-
-    if (permission === 'denied') {
-      const message = 'Microphone permission denied';
-      const error: VoiceError = { type: 'mic_error', message };
-      updateError(error);
-      return Promise.reject(new Error(message));
-    }
 
     try {
-      await client.connect({
-        ...config,
-        verboseTranscription: true,
-      });
-    } catch (e) {
-      const message = 'We could not connect to the voice. Please try again.';
-      const error: VoiceError = { type: 'socket_error', message };
-      updateError(error);
-      return Promise.reject(new Error(message));
-    }
+      const permission = await getStream();
 
-    try {
+      if (permission === 'denied') {
+        console.error('[VoiceProvider] Microphone permission denied');
+        const error: VoiceError = {
+          type: 'mic_error',
+          message: 'Microphone permission denied. Please grant microphone access and try again.',
+        };
+        updateError(error);
+        throw error;
+      }
+      // console.log('[VoiceProvider] Microphone permission granted');
+
+      try {
+        // console.log('[VoiceProvider] Attempting to connect to voice service...');
+        await client.connect({
+          ...config,
+          verboseTranscription: true,
+        });
+        // console.log('[VoiceProvider] Successfully connected to voice service');
+      } catch (e) {
+        const error: VoiceError = {
+          type: 'socket_error',
+          message: 'Could not establish voice connection. Please try again.',
+          error: e instanceof Error ? e : undefined
+        };
+        // console.error('[VoiceProvider] Connection failed:', e);
+        updateError(error);
+        throw error;
+      }
+
       const [micPromise, playerPromise] = await Promise.allSettled([
         mic.start(),
         player.initPlayer(),
       ]);
 
-      if (
-        micPromise.status === 'fulfilled' &&
-        playerPromise.status === 'fulfilled'
-      ) {
-        setStatus({ value: 'connected' });
+      if (micPromise.status === 'rejected') {
+        throw new Error(micPromise.reason);
       }
+
+      if (playerPromise.status === 'rejected') {
+        throw new Error(playerPromise.reason);
+      }
+
+      // console.log('[VoiceProvider] Audio system initialized successfully');
+      setStatus({ value: 'connected' });
     } catch (e) {
+      // console.error('[VoiceProvider] Connection failed:', e);
       const error: VoiceError = {
         type: 'audio_error',
-        message:
-          e instanceof Error
-            ? e.message
-            : 'We could not connect to audio. Please try again.',
+        message: e instanceof Error ? e.message : 'Could not initialize audio system',
       };
       updateError(error);
+      throw error;
+    } finally {
+      setIsConnecting(false);
     }
   }, [client, config, getStream, mic, player, updateError]);
 
-  const disconnectFromVoice = useCallback(() => {
+  const disconnectFromVoice = useCallback(async () => {
+    console.log('[VoiceProvider] Initiating voice disconnect...');
+    setStatus({ value: 'disconnecting' });
+
+    // Clean up any error state
+    updateError(null);
+
+    const cleanupPromises = [];
+
+    // Disconnect WebSocket first to stop incoming data
     if (client.readyState !== VoiceReadyState.CLOSED) {
-      client.disconnect();
+      cleanupPromises.push(
+        new Promise<void>((resolve) => {
+          client.disconnect();
+          console.log('[VoiceProvider] Client disconnected');
+          resolve();
+        })
+      );
     }
-    player.stopAll();
-    mic.stop();
-    if (clearMessagesOnDisconnect) {
-      messageStore.clearMessages();
+
+    // Stop audio playback and microphone
+    cleanupPromises.push(
+      new Promise<void>((resolve) => {
+        player.stopAll();
+        // console.log('[VoiceProvider] Audio player stopped');
+        resolve();
+      }),
+      new Promise<void>((resolve) => {
+        mic.stop();
+        // console.log('[VoiceProvider] Microphone stopped');
+        resolve();
+      })
+    );
+
+    // Clear state
+    cleanupPromises.push(
+      new Promise<void>((resolve) => {
+        if (clearMessagesOnDisconnect) {
+          messageStore.clearMessages();
+          // console.log('[VoiceProvider] Message store cleared');
+        }
+        toolStatus.clearStore();
+        setIsPaused(false);
+        resolve();
+      })
+    );
+
+    try {
+      await Promise.all(cleanupPromises);
+      // console.log('[VoiceProvider] Voice system fully disconnected');
+      setStatus({ value: 'disconnected' });
+    } catch (e) {
+      // console.error('[VoiceProvider] Error during disconnect:', e);
+      const message = e instanceof Error ? e.message : 'Error during disconnect';
+      updateError({ type: 'socket_error', message });
     }
-    toolStatus.clearStore();
-    setIsPaused(false);
   }, [
     client,
     player,
@@ -408,13 +472,20 @@ export const VoiceProvider: FC<VoiceProviderProps> = ({
     if (
       error !== null &&
       status.value !== 'error' &&
-      status.value !== 'disconnected'
+      status.value !== 'disconnected' &&
+      status.value !== 'disconnecting'
     ) {
-      // If the status is ever set to `error`, disconnect the voice.
       setStatus({ value: 'error', reason: error.message });
-      disconnectFromVoice();
+      if (error.type !== 'mic_error') { // Don't auto-reset mic permission errors
+        // Set a timeout to clear the error
+        const timeoutId = setTimeout(() => {
+          updateError(null);
+          setStatus({ value: 'disconnected' });
+        }, 1000); // Give UI time to show error
+        return () => clearTimeout(timeoutId);
+      }
     }
-  }, [status.value, disconnect, disconnectFromVoice, error]);
+  }, [error, status.value]);
 
   useEffect(() => {
     // disconnect from socket when the voice provider component unmounts
@@ -426,10 +497,12 @@ export const VoiceProvider: FC<VoiceProviderProps> = ({
 
   const sendUserInput = useCallback(
     (text: string) => {
+      console.log('[VoiceProvider] Sending user input:', text);
       try {
         clientSendUserInput(text);
       } catch (e) {
         const message = e instanceof Error ? e.message : 'Unknown error';
+        console.error('[VoiceProvider] Error sending user input:', message);
         updateError({ type: 'socket_error', message });
       }
     },
@@ -438,10 +511,12 @@ export const VoiceProvider: FC<VoiceProviderProps> = ({
 
   const sendAssistantInput = useCallback(
     (text: string) => {
+      console.log('[VoiceProvider] Sending assistant input:', text);
       try {
         clientSendAssistantInput(text);
       } catch (e) {
         const message = e instanceof Error ? e.message : 'Unknown error';
+        console.error('[VoiceProvider] Error sending assistant input:', message);
         updateError({ type: 'socket_error', message });
       }
     },
@@ -486,79 +561,69 @@ export const VoiceProvider: FC<VoiceProviderProps> = ({
     [clientSendToolMessage, updateError],
   );
 
-  const ctx = useMemo(
-    () =>
-      ({
-        connect,
-        disconnect,
-        fft: player.fft,
-        micFft: mic.fft,
-        isMuted: mic.isMuted,
-        isAudioMuted: player.isAudioMuted,
-        isPlaying: player.isPlaying,
-        messages: messageStore.messages,
-        lastVoiceMessage: messageStore.lastVoiceMessage,
-        lastUserMessage: messageStore.lastUserMessage,
-        clearMessages: messageStore.clearMessages,
-        mute: mic.mute,
-        muteAudio: player.muteAudio,
-        readyState: client.readyState,
-        sendUserInput,
-        sendAssistantInput,
-        sendSessionSettings,
-        pauseAssistant,
-        resumeAssistant,
-        sendToolMessage,
-        status,
-        unmute: mic.unmute,
-        unmuteAudio: player.unmuteAudio,
-        error,
-        isAudioError,
-        isError,
-        isMicrophoneError,
-        isSocketError,
-        callDurationTimestamp,
-        toolStatusStore: toolStatus.store,
-        chatMetadata: messageStore.chatMetadata,
-        playerQueueLength: player.queueLength,
-        isPaused,
-      }) satisfies VoiceContextType,
-    [
-      connect,
-      disconnect,
-      player.fft,
-      player.isAudioMuted,
-      player.isPlaying,
-      player.muteAudio,
-      player.unmuteAudio,
-      player.queueLength,
-      mic.fft,
-      mic.isMuted,
-      mic.mute,
-      mic.unmute,
-      messageStore.messages,
-      messageStore.lastVoiceMessage,
-      messageStore.lastUserMessage,
-      messageStore.clearMessages,
-      messageStore.chatMetadata,
-      client.readyState,
-      sendUserInput,
-      sendAssistantInput,
-      sendSessionSettings,
-      pauseAssistant,
-      resumeAssistant,
-      sendToolMessage,
+  const stateValue = useMemo(
+    () => ({
       status,
       error,
-      isAudioError,
-      isError,
-      isMicrophoneError,
-      isSocketError,
-      callDurationTimestamp,
-      toolStatus.store,
       isPaused,
-    ],
+    }),
+    [status, error, isPaused]
   );
 
-  return <VoiceContext.Provider value={ctx}>{children}</VoiceContext.Provider>;
+  const actionsValue = useMemo(
+    () => ({
+      connect,
+      disconnect,
+      sendUserInput,
+      clearMessages: messageStore.clearMessages,
+      sendSessionSettings,
+    }),
+    [connect, disconnect, sendUserInput, messageStore.clearMessages, sendSessionSettings]
+  );
+
+
+
+  const contextValue = useMemo(
+    () => ({
+      ...stateValue,
+      ...actionsValue,
+      lastVoiceMessage: messageStore.lastVoiceMessage,
+      lastUserMessage: messageStore.lastUserMessage,
+      readyState: client.readyState,
+      sendAssistantInput,
+      sendSessionSettings,
+      sendToolMessage,
+      pauseAssistant,
+      resumeAssistant,
+      muteAudio: player.muteAudio,
+      unmuteAudio: player.unmuteAudio,
+      isAudioError: error?.type === 'audio_error',
+      isMicrophoneError: error?.type === 'mic_error',
+      isSocketError: error?.type === 'socket_error',
+      isError,
+      callDurationTimestamp,
+      toolStatusStore: toolStatus.store,
+    }),
+    [
+      stateValue,
+      actionsValue,
+      client.readyState,
+      sendAssistantInput,
+      sendSessionSettings,
+      sendToolMessage,
+      pauseAssistant,
+      resumeAssistant,
+      player.muteAudio,
+      player.unmuteAudio,
+      error,
+      callDurationTimestamp,
+      toolStatus.store,
+    ]
+  );
+
+  return (
+    <VoiceContext.Provider value={contextValue}>
+      {children}
+    </VoiceContext.Provider>
+  );
 };

@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { SidebarMenu, SidebarMenuItem } from "@/components/ui/sidebar";
 import { motion, AnimatePresence } from "framer-motion";
 import { MessageSquare, Mic } from "lucide-react";
-import { cn } from "@/utils";
+import { cn } from "@/utils/classNames";
 
 interface TextVoiceSwitchProps {
   isVoiceMode: boolean;

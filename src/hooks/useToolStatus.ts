@@ -1,6 +1,7 @@
+// src/hooks/useToolStatus.ts
 import { useCallback, useState } from 'react';
 
-import type { ToolCall, ToolError, ToolResponse } from '@/models/messages';
+import type { ToolCall, ToolError, ToolResponse } from '@/types/hume-messages';
 
 export const useToolStatus = () => {
   const [store, setStore] = useState<

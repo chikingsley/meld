@@ -1,17 +1,17 @@
 // src/components/chat-input/BottomControls.tsx
 import React from "react"
-import { cn } from "@/utils"
+import { cn } from "@/utils/classNames"
 import { Menu } from "lucide-react"
-import { useVoice } from "@/lib/VoiceProvider"
+import { useVoice } from "@/providers/VoiceProvider"
 import { Button } from "@/components/ui/button"
-import { useIsMobile } from "@/hooks/use-mobile"
+import { useIsMobile } from "@/hooks/useMobile"
 import VoiceControlSkeleton from "./controls/VoiceControlSkeleton"
 import { AnimatePresence, motion } from "framer-motion"
 import Controls from "@/components/chat-input/controls"
 import { ChatInputForm } from "@/components/chat-input/ChatInputForm"
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
-import { useSessionContext } from "@/lib/SessionProvider"
-import { useText } from "@/lib/TextProvider"
+import { useSessionContext } from "@/providers/SessionProvider"
+import { useText } from "@/providers/TextProvider"
 
 interface BottomControlsProps {
   sessionId?: string;

@@ -1,5 +1,5 @@
 import React, { useState } from "react"
-import { cn } from "@/utils";
+import { cn } from "@/utils/classNames";
 import { motion, useAnimation } from "framer-motion";
 import { Magnet } from "lucide-react";
 import { useEffect } from "react";

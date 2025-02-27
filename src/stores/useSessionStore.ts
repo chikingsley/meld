@@ -1,7 +1,7 @@
 // src/stores/useSessionStore.ts
 import { create } from 'zustand';
-import type { ConnectionMessage } from '@/lib/connection-message';
-import type { ChatMetadataMessage, JSONMessage } from '@/models/messages';
+import type { ConnectionMessage } from '@/lib/hume/connection-message';
+import type { ChatMetadataMessage, JSONMessage } from '@/types/hume-messages';
 
 export type Message = JSONMessage | ConnectionMessage;
 

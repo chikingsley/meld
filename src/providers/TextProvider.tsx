@@ -1,13 +1,13 @@
-// src/lib/TextProvider.tsx
+// src/providers/TextProvider.tsx
 import { useCallback, useState } from 'react';
 import { useSessionStore } from '@/stores/useSessionStore';
-import { useSessionContext } from "@/lib/SessionProvider"
+import { useSessionContext } from "@/providers/SessionProvider"
 import type {
   AssistantTranscriptMessage,
   JSONMessage,
   UserTranscriptMessage,
-} from '@/models/messages';
-import { keepLastN } from '@/lib/utils';
+} from '@/types/hume-messages';
+import { keepLastN } from '@/lib/hume/keepLastN';
 import { useCompletions } from '@/hooks/useCompletions';
 
 interface TextMessagesOptions {

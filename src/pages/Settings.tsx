@@ -12,7 +12,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { PlanToggle } from "@/components/ui/plan-toggle"
 import { useUser, RedirectToSignIn, useAuth } from "@clerk/clerk-react";
 import { useTitleGeneration } from "@/db/session-store-extension";
-import { useSessionContext } from "@/lib/SessionProvider";
+import { useSessionContext } from "@/providers/SessionProvider";
 import { useState, useRef } from "react";
 
 // Import React FilePond

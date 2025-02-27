@@ -1,4 +1,4 @@
-// src/db/SessionProvider.tsx
+// src/providers/SessionProvider.tsx
 import React, {
   createContext,
   useContext,

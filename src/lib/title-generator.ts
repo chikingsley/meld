@@ -1,4 +1,4 @@
-import { StoredMessage } from '@/db/session-store';
+import { Message } from '@/types/messages';
 
 // Configuration for title generation
 const TITLE_MAX_LENGTH = 60;
@@ -15,7 +15,7 @@ export interface TitleGenerationResponse {
  * Uses LLM for more complex conversations or simple extraction for brief exchanges
  */
 export async function generateSessionTitle(
-  messages: StoredMessage[], 
+  messages: Message[], 
   isVoiceMode: boolean
 ): Promise<TitleGenerationResponse> {
   // Handle empty message case
@@ -48,10 +48,10 @@ export async function generateSessionTitle(
  * Generate a simple title based on the first few words of the first message
  */
 function generateSimpleTitle(
-  messages: StoredMessage[], 
+  messages: Message[], 
   isVoiceMode: boolean
 ): TitleGenerationResponse {
-  const firstMessage = messages[0].message.content.trim();
+  const firstMessage = messages[0].content.trim();
   let title = "";
   
   // Try to extract first sentence if it's not too long
@@ -80,8 +80,8 @@ function generateSimpleTitle(
   
   // Check for voice-related content
   const containsVoiceTerms = firstMessage.toLowerCase().includes('voice') || 
-                             firstMessage.toLowerCase().includes('speak') || 
-                             firstMessage.toLowerCase().includes('talk');
+                           firstMessage.toLowerCase().includes('speak') || 
+                           firstMessage.toLowerCase().includes('talk');
   
   return {
     title: title || "Chat Conversation",
@@ -93,13 +93,13 @@ function generateSimpleTitle(
  * Generate a title using a language model by analyzing message content
  */
 async function generateLLMTitle(
-  messages: StoredMessage[], 
+  messages: Message[], 
   isVoiceMode: boolean
 ): Promise<TitleGenerationResponse> {
   // Extract content from messages (limit to first 5 for efficiency)
   const messageContents = messages
     .slice(0, 5)
-    .map(m => `${m.message.role}: ${m.message.content}`)
+    .map(m => `${m.role}: ${m.content}`)
     .join('\n\n');
   
   // Call the LLM API

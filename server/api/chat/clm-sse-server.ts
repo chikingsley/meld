@@ -306,8 +306,6 @@ export async function POST(req: Request) {
         };
         await writer.write(encoder.encode(`data: ${JSON.stringify(endMessage)}\n\n`));
         await writer.write(encoder.encode('data: [DONE]\n\n'));
-        
-        console.log('Full response:', fullResponse);
       } catch (error) {
         console.error('Streaming error:', error);
         const errorData = {

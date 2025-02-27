@@ -2,17 +2,7 @@
 import { useCallback } from 'react';
 import { useSessionStore } from '@/stores/useSessionStore';
 import { useUserStore } from '@/stores/useUserStore';
-
-export interface StoredMessage {
-  message: {
-    role: string;
-    content: string;
-  };
-  expressions?: Record<string, number>;
-  labels?: Record<string, number>;
-  prosody?: Record<string, number>;
-  timestamp: string;
-}
+import { Message } from '@/types/messages';
 
 export interface StoredSession {
   id: string;
@@ -20,7 +10,7 @@ export interface StoredSession {
   timestamp: string;
   title?: string;
   lastMessage?: string;
-  messages: StoredMessage[];
+  messages: Message[];
 }
 
 const SESSIONS_KEY = 'meld_sessions';
@@ -78,7 +68,7 @@ export const sessionStore = {
     return this.getSessions().filter(s => s.userId === userId);
   },
 
-  async addMessage(sessionId: string, message: StoredMessage) {
+  async addMessage(sessionId: string, message: Message) {
     console.log('🔧 Adding message to session store:', { sessionId, message });
     const sessions = this.getSessions();
     const index = sessions.findIndex(s => s.id === sessionId);
@@ -92,36 +82,40 @@ export const sessionStore = {
       
       // Save to prisma and store embedding in background
       console.log('🔧 Saving message to prisma...');
-      Promise.resolve().then(async () => {
-        try {
-          const response = await prismaStore.addMessage(sessionId, message);
-          console.log('Updated session messages in prisma');
+      try {
+        const response = await prismaStore.addMessage(sessionId, message);
+        const messageData = await response.json();
+        console.log('🔧 Message saved to prisma:', messageData);
 
-          // Get message ID from response
-          const messageData = await response.json();
-          if (messageData?.id) {
-            // Store embedding in background
-            prismaStore.storeEmbedding(messageData.id, message.message.content)
-              .then(() => console.log('Stored embedding for message:', messageData.id))
-              .catch(err => console.error('Failed to store embedding:', err));
+        // Store embedding using the message ID from the response
+        if (messageData && typeof messageData === 'object' && 'id' in messageData && 'content' in messageData) {
+          const messageId = messageData.id;
+          const content = messageData.content;
+          console.log('🔧 Storing embedding for message:', { messageId, content });
+          try {
+            await prismaStore.storeEmbedding(messageId, content);
+            console.log('🔧 Successfully stored embedding for message:', messageId);
+          } catch (err) {
+            console.error('🔧 Failed to store embedding:', err);
           }
-        } catch (error) {
-          console.error('Failed to save message to prisma:', error);
+        } else {
+          console.error('🔧 Invalid message data from prisma:', messageData);
         }
-      });
+      } catch (error) {
+        console.error('Failed to save message to prisma:', error);
+      }
     } else {
       console.error('Session not found:', sessionId);
     }
   },
 
-  getMessages(sessionId: string): StoredMessage[] {
+  getMessages(sessionId: string): Message[] {
     const sessions = this.getSessions();
     const session = sessions.find(s => s.id === sessionId);
-    const messages = session?.messages || [];
-    return messages;
+    return session?.messages || [];
   },
 
-  getAllMessages(userId: string): StoredMessage[] {
+  getAllMessages(userId: string): Message[] {
     const sessions = this.getUserSessions(userId);
     return sessions.flatMap(session => 
       (session.messages || []).map(message => ({

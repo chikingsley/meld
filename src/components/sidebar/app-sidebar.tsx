@@ -16,7 +16,7 @@ import {
   SidebarMenuItem
 } from "@/components/ui/sidebar"
 import { Button } from "../ui/button"
-import { useSessionContext } from "@/lib/SessionProvider"
+import { useSessionContext } from "@/providers/SessionProvider"
 import { useSessionHandlers } from "@/components/sidebar/session-handler"
 
 export default React.memo(function AppSidebar({ className, ...props }: React.ComponentProps<typeof Sidebar>) {

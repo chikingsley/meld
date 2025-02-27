@@ -6,8 +6,8 @@ import type {
   AssistantTranscriptMessage,
   JSONMessage,
   UserTranscriptMessage,
-} from '../models/messages';
-import { keepLastN } from '@/lib/utils';
+} from '../types/hume-messages';
+import { keepLastN } from '@/lib/hume/keepLastN';
 
 export const useMessages = ({
   sendMessageToParent,

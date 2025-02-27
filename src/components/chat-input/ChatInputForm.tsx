@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { MagnetizeButton } from "@/components/chat-input/controls/magnetize-button";
 import { ArrowRight, Mic, Paperclip, Loader2 } from "lucide-react";
-import { cn } from "@/utils";
+import { cn } from "@/utils/classNames";
 
 // Add proper types for Web Speech API
 declare global {

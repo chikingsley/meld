@@ -1,13 +1,14 @@
 // src/components/chat-window/Chat.tsx
-import { useVoice } from "@/lib/VoiceProvider";
-import Messages from "./Messages";
+import { useVoice } from "@/providers/VoiceProvider";
+import Messages from "@/components/chat-window/Messages.tsx";
 import BottomControls from "../chat-input/BottomControls";
 import { ComponentRef, useEffect, useRef, useState, useMemo, useCallback } from "react";
-import { sessionStore, StoredMessage } from "@/db/session-store";
+import { sessionStore } from "@/db/session-store";
+import { Message } from '@/types/messages';
 import { prismaStore } from "@/db/prisma-store";
 import { useSessionStore } from "@/stores/useSessionStore";
-import type { JSONMessage } from "@/models/messages";
-import type { ConnectionMessage } from "@/lib/connection-message";
+import type { JSONMessage } from "@/types/hume-messages";
+import type { ConnectionMessage } from "@/lib/hume/connection-message";
 import { useUser } from '@clerk/clerk-react';
 import { format, isToday, isYesterday, isSameWeek, isSameYear } from 'date-fns';
 
@@ -36,15 +37,15 @@ export default function ClientComponent({ sessionId: urlSessionId, scrollToMessa
   const { clearMessages, status } = useVoice();
   const messages = useSessionStore(state => state.messages);
   const messagesLength = useSessionStore(state => state.messages.length);
-  const [storedMessages, setStoredMessages] = useState<StoredMessage[]>([]);
+  const [storedMessages, setStoredMessages] = useState<Message[]>([]);
 
   // Add a new state for API messages
-  const [apiMessages, setApiMessages] = useState<StoredMessage[]>([]);
+  const [apiMessages, setApiMessages] = useState<Message[]>([]);
   const [apiLoading, setApiLoading] = useState(false);
 
   // New state for continuous mode
   const [allSessions, setAllSessions] = useState<any[]>([]);
-  const [allStoredMessages, setAllStoredMessages] = useState<any[]>([]);
+  const [allMessages, setAllMessages] = useState<any[]>([]);
 
   const fetchApiMessages = useCallback(async (sessionId: string) => {
     console.log('Fetching API messages triggered');
@@ -58,8 +59,8 @@ export default function ClientComponent({ sessionId: urlSessionId, scrollToMessa
       const messages = await prismaStore.getMessages(sessionId);
       console.log('Received API messages:', messages);
 
-      // Map API messages to StoredMessage type
-      const typedMessages: StoredMessage[] = messages.map(apiMsg => {
+      // Map API messages to Message type
+      const typedMessages: Message[] = messages.map(apiMsg => {
         // Extract prosody, expressions, and labels from metadata if they exist
         const metadata = (apiMsg as any).metadata as {
           prosody?: Record<string, number>,
@@ -89,7 +90,7 @@ export default function ClientComponent({ sessionId: urlSessionId, scrollToMessa
   }, []);
 
   // Create a unique ID for each message based on content and role
-  const createMessageId = (msg: StoredMessage | JSONMessage | ConnectionMessage, sessionId?: string) => {
+  const createMessageId = (msg: Message | JSONMessage | ConnectionMessage, sessionId?: string) => {
     if ('type' in msg && (msg.type === 'socket_connected' || msg.type === 'socket_disconnected')) {
       return `${msg.type}-${msg.receivedAt.toISOString()}`;
     } else if ('message' in msg) {
@@ -121,7 +122,7 @@ export default function ClientComponent({ sessionId: urlSessionId, scrollToMessa
         new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
       );
 
-      setAllStoredMessages(sortedMessages);
+      setAllMessages(sortedMessages);
     }
   }, [user?.id]);
 
@@ -168,7 +169,7 @@ export default function ClientComponent({ sessionId: urlSessionId, scrollToMessa
               }, {} as Record<string, number>)
               : undefined;
 
-            const storedMessage: StoredMessage = {
+            const Message: Message = {
               message: {
                 role: msg.message.role || 'user',
                 content: msg.message.content || ''
@@ -179,7 +180,7 @@ export default function ClientComponent({ sessionId: urlSessionId, scrollToMessa
 
             // Only pass urlSessionId if it's not null
             if (urlSessionId) {
-              sessionStore.addMessage(urlSessionId, storedMessage);
+              sessionStore.addMessage(urlSessionId, Message);
             }
           }
         }
@@ -207,14 +208,14 @@ export default function ClientComponent({ sessionId: urlSessionId, scrollToMessa
           new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
         );
 
-        setAllStoredMessages(sortedMessages);
+        setAllMessages(sortedMessages);
       }
     }
   }, [messagesLength, urlSessionId, status.value, user?.id]);
 
   // Convert all stored messages across sessions
-  const convertedAllStoredMessages = useMemo(() =>
-    allStoredMessages.map(msg => ({
+  const convertedAllMessages = useMemo(() =>
+    allMessages.map(msg => ({
       id: createMessageId(msg, msg.sessionId),
       type: msg.message.role === 'user' ? 'user_message' : 'assistant_message',
       message: msg.message,
@@ -226,7 +227,7 @@ export default function ClientComponent({ sessionId: urlSessionId, scrollToMessa
       timestamp: msg.timestamp,
       sessionId: msg.sessionId
     })),
-    [allStoredMessages]);
+    [allMessages]);
 
   // Add IDs and timestamps to live messages
   const messagesWithIds = useMemo(() =>
@@ -263,7 +264,7 @@ export default function ClientComponent({ sessionId: urlSessionId, scrollToMessa
   //   });
 
   //   // Then add messages from all sessions
-  //   convertedAllStoredMessages.forEach(msg => {
+  //   convertedAllMessages.forEach(msg => {
   //     if (msg.id) {
   //       messageMap.set(msg.id, msg);
   //     }
@@ -277,14 +278,14 @@ export default function ClientComponent({ sessionId: urlSessionId, scrollToMessa
   //   });
 
   //   return Array.from(messageMap.values());
-  // }, [convertedAllStoredMessages, messagesWithIds]);
+  // }, [convertedAllMessages, messagesWithIds]);
 
   // NEW VERSION - Combine all messages but keep all duplicates
   const combinedMessages = useMemo(() => {
     const messageMap = new Map();
     
     // Add ALL messages from all sessions first with no filtering
-    convertedAllStoredMessages.forEach(msg => {
+    convertedAllMessages.forEach(msg => {
       if (msg.id) {
         messageMap.set(msg.id, msg);
       }
@@ -298,7 +299,7 @@ export default function ClientComponent({ sessionId: urlSessionId, scrollToMessa
     });
   
     return Array.from(messageMap.values());
-  }, [convertedAllStoredMessages, messagesWithIds]);
+  }, [convertedAllMessages, messagesWithIds]);
 
   // Add date markers and other markers
   const messagesWithMarkers = useMemo(() => {

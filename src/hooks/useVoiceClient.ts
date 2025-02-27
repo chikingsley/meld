@@ -3,12 +3,12 @@ import { Hume, HumeClient } from 'hume';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { type Simplify } from 'type-fest';
 
-import { type AuthStrategy } from '../lib/auth';
+import { type AuthStrategy } from '../lib/hume/auth';
 import type {
   AudioOutputMessage,
   JSONMessage,
   ToolCall,
-} from '@/models/messages';
+} from '@/types/hume-messages';
 
 const isNever = (_n: never) => {
   return;
