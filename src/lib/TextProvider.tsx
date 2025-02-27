@@ -1,7 +1,7 @@
 // src/lib/TextProvider.tsx
 import { useCallback, useState } from 'react';
 import { useSessionStore } from '@/stores/useSessionStore';
-import { useSessionContext } from "@/db/SessionContext"
+import { useSessionContext } from "@/lib/SessionProvider"
 import type {
   AssistantTranscriptMessage,
   JSONMessage,

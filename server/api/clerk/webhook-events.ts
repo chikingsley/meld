@@ -1,7 +1,7 @@
 // server/api/clerk/webhook-events.ts
 
 // Store event streams for each user
-const userEventStreams = new Map<string, ReadableStreamController<Uint8Array>[]>();
+const userEventStreams = new Map<string, ReadableStreamDefaultController<Uint8Array>[]>();
 
 // Send a heartbeat every 30 seconds to keep the connection alive
 const HEARTBEAT_INTERVAL = 30 * 1000;
@@ -25,7 +25,7 @@ export function emitUserEvent(userId: string, data: any) {
 }
 
 // Send a heartbeat message to keep the connection alive
-function sendHeartbeat(controller: ReadableStreamController<Uint8Array>) {
+function sendHeartbeat(controller: ReadableStreamDefaultController<Uint8Array>) {
   try {
     const heartbeat = `data: {"type":"heartbeat"}\n\n`;
     controller.enqueue(new TextEncoder().encode(heartbeat));
@@ -62,8 +62,9 @@ export default async function handleWebhookEvents(req: Request) {
       userEventStreams.get(userId)?.push(controller);
       console.log(`[${new Date().toISOString()}] Added stream controller for user ${userId}. Total streams: ${userEventStreams.get(userId)?.length}`);
 
-      // Start heartbeat
-      const heartbeatInterval = setInterval(() => sendHeartbeat(controller), HEARTBEAT_INTERVAL);
+      // Start heartbeat with proper binding
+      const boundSendHeartbeat = () => sendHeartbeat(controller);
+      const heartbeatInterval = setInterval(boundSendHeartbeat, HEARTBEAT_INTERVAL);
 
       // Clean up when the stream ends
       return () => {

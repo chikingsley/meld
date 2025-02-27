@@ -46,7 +46,6 @@ model Message {
   vector    MessageVector?
   session   Session        @relation(fields: [sessionId], references: [id], onDelete: Cascade)
 
-  @@unique([sessionId, role, content, timestamp])
   @@index([sessionId])
   @@index([sessionId, timestamp])
   @@map("messages")

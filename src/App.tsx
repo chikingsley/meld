@@ -5,10 +5,10 @@ import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 import { ClerkProvider } from '@clerk/react-router'
 import { getHumeAccessToken } from './utils/getHumeAccessToken';
 import { Layout } from '@/layout';
-import VoiceSession from '@/pages/Session';
+import Session from '@/pages/Session';
 import Settings from '@/pages/Settings';
 import Test from '@/pages/Test';
-import { SessionProvider } from '@/db/SessionContext';
+import { SessionProvider } from '@/lib/SessionProvider';
 import { useUserConfig } from '@/hooks/useUserConfig';
 import { useUserStore } from '@/stores/useUserStore';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
@@ -69,17 +69,17 @@ function AppContent() {
   }
 
   return (
-    <VoiceProvider 
+    <VoiceProvider
       auth={{ type: 'accessToken', value: accessToken || '' }}
       configId={configId || undefined}
     >
       <SessionProvider>
         <ErrorBoundary>
           <Routes>
-            <Route path="/" element={<Navigate to="/session" replace />} />
             <Route element={<Layout />}>
-              <Route path="/session" element={<VoiceSession />} />
-              <Route path="/session/:sessionId" element={<VoiceSession />} />
+              <Route path="/" element={<Session />} />
+              <Route path="/session" element={<Session />} />
+              <Route path="/session/:sessionId" element={<Session />} />
               <Route path="/settings" element={<Settings />} />
               <Route path="/test" element={<Test />} />
             </Route>

@@ -10,7 +10,7 @@ import { AnimatePresence, motion } from "framer-motion"
 import Controls from "@/components/chat-input/controls"
 import { ChatInputForm } from "@/components/chat-input/ChatInputForm"
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
-import { useSessionContext } from "@/db/SessionContext"
+import { useSessionContext } from "@/lib/SessionProvider"
 import { useText } from "@/lib/TextProvider"
 
 interface BottomControlsProps {

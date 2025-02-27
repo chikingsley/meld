@@ -1,26 +1,64 @@
-// src/components/sidebar/app-sidebar.tsx
 import * as React from "react"
 import { Command, LogIn } from "lucide-react"
 import { SignInButton, SignedIn, SignedOut } from "@clerk/clerk-react"
+import { useNavigate } from "react-router-dom"
+
 import { NavSessions } from "@/components/sidebar/nav-sessions"
 import { NavUser } from "@/components/sidebar/nav-user"
 import { TextVoiceSwitch } from "@/components/ui/text-voice-switch"
-import { Sidebar, SidebarContent, SidebarFooter, SidebarHeader, SidebarMenu, SidebarMenuButton, SidebarMenuItem } from "@/components/ui/sidebar"
+import {
+  Sidebar,
+  SidebarContent,
+  SidebarFooter,
+  SidebarHeader,
+  SidebarMenu,
+  SidebarMenuButton,
+  SidebarMenuItem
+} from "@/components/ui/sidebar"
 import { Button } from "../ui/button"
-import { useNavigate } from "react-router-dom"
-import { useSessionContext } from "@/db/SessionContext"
-import { SessionHandlerWrapper, useSessionHandlers } from "@/components/sidebar/session-handler"
+import { useSessionContext } from "@/lib/SessionProvider"
+import { useSessionHandlers } from "@/components/sidebar/session-handler"
 
-const SidebarInner = ({ className, ...props }: React.ComponentProps<typeof Sidebar>) => {
-  const { sessions, updateSession, loading, error } = useSessionContext();
-  const sessionHandlers = useSessionHandlers();
+export default React.memo(function AppSidebar({ className, ...props }: React.ComponentProps<typeof Sidebar>) {
+  const {
+    sessions,
+    createSession,
+    updateSession,
+    deleteSession,
+    selectSession,
+    isVoiceMode,
+    setVoiceMode,
+    loading,
+    error
+  } = useSessionContext();
 
-  // Base handlers for operations that don't need voice disconnect
-  const baseHandlers = React.useMemo(() => ({
-    handleRenameSession: async (id: string, newTitle: string) => {
-      await updateSession(id, { title: newTitle });
+  const navigate = useNavigate();
+
+  // Combined handlers that include navigation
+  const handleCreateSession = async () => {
+    const sessionId = await createSession();
+    if (sessionId) {
+      navigate(`/session/${sessionId}`);
     }
-  }), [updateSession]);
+  };
+
+  const handleSelectSession = async (id: string) => {
+    await selectSession(id);
+    navigate(`/session/${id}`);
+  };
+
+  const handleDeleteSession = async (id: string) => {
+    await deleteSession(id);
+    // After deleting, navigate to root if we were viewing that session
+    const currentPath = window.location.pathname;
+    if (currentPath.includes(id)) {
+      navigate('/');
+    }
+  };
+
+  const handleRenameSession = async (id: string, newTitle: string) => {
+    await updateSession(id, { title: newTitle });
+  };
 
   return (
     <Sidebar variant="inset" className={className} {...props}>
@@ -41,9 +79,9 @@ const SidebarInner = ({ className, ...props }: React.ComponentProps<typeof Sideb
           </SidebarMenuItem>
           <SidebarMenuItem>
             <div className="mt-2 px-2">
-              <Button 
-                variant="default" 
-                onClick={sessionHandlers.handleCreateSession} 
+              <Button
+                variant="default"
+                onClick={handleCreateSession}
                 className="w-full flex items-center gap-1.5 rounded-lg"
                 disabled={loading}
               >
@@ -51,7 +89,7 @@ const SidebarInner = ({ className, ...props }: React.ComponentProps<typeof Sideb
                 {loading ? 'Creating Chat...' : 'Start New Chat'}
               </Button>
               {error && (
-                <p className="text-xs text-destructive mt-2">{error}</p>
+                <p className="text-xs text-destructive mt-2">{error.toString()}</p>
               )}
             </div>
           </SidebarMenuItem>
@@ -61,30 +99,30 @@ const SidebarInner = ({ className, ...props }: React.ComponentProps<typeof Sideb
         {loading && sessions.length === 0 ? (
           <div className="p-4 text-sm text-muted-foreground">Loading sessions...</div>
         ) : error && sessions.length === 0 ? (
-          <div className="p-4 text-sm text-destructive">{error}</div>
+          <p className="text-xs text-destructive mt-2">{error.toString()}</p>
         ) : (
-          <NavSessions 
+          <NavSessions
             sessions={sessions}
-            onSelectSession={sessionHandlers.handleSelectSession}
-            onDeleteSession={sessionHandlers.handleDeleteSession}
-            onRenameSession={baseHandlers.handleRenameSession}
+            onSelectSession={handleSelectSession}
+            onDeleteSession={handleDeleteSession}
+            onRenameSession={handleRenameSession}
           />
         )}
       </SidebarContent>
       <SidebarFooter>
         <SignedIn>
-          <TextVoiceSwitch isVoiceMode={useSessionContext().isVoiceMode} onModeChange={useSessionContext().setVoiceMode} />
+          <TextVoiceSwitch isVoiceMode={isVoiceMode} onModeChange={setVoiceMode} />
           <NavUser />
         </SignedIn>
         <SignedOut>
-          <SignInButton 
+          <SignInButton
             mode="modal"
             fallbackRedirectUrl="/"
             signUpFallbackRedirectUrl="/"
           >
             <Button variant="default" className="w-full justify-start rounded-lg gap-2 p-4 h-14 font-normal">
               <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border">
-                <LogIn className="size-4" />  
+                <LogIn className="size-4" />
               </div>
               <div className="flex-1 text-left">
                 <p className="text-sm font-medium">Sign In</p>
@@ -96,37 +134,4 @@ const SidebarInner = ({ className, ...props }: React.ComponentProps<typeof Sideb
       </SidebarFooter>
     </Sidebar>
   );
-};
-
-const AppSidebarComponent = (props: React.ComponentProps<typeof Sidebar>) => {
-  const { createSession, selectSession, deleteSession } = useSessionContext();
-  const navigate = useNavigate();
-
-  return (
-    <SessionHandlerWrapper
-      onCreateSession={async () => {
-        const sessionId = await createSession();
-        if (sessionId) {
-          navigate(`/session/${sessionId}`);
-        }
-      }}
-      onSelectSession={async (id: string) => {
-        await selectSession(id);
-        navigate(`/session/${id}`);
-      }}
-      onDeleteSession={async (id: string) => {
-        await deleteSession(id);
-        // After deleting, navigate to root if we were viewing that session
-        const currentPath = window.location.pathname;
-        if (currentPath.includes(id)) {
-          navigate('/');
-        }
-      }}
-    >
-      <SidebarInner {...props} />
-    </SessionHandlerWrapper>
-  );
-};
-
-// Memoize the entire component
-export const AppSidebar = React.memo(AppSidebarComponent);
+});

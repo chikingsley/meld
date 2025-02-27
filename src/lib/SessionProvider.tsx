@@ -1,4 +1,4 @@
-// src/db/SessionContext.tsx
+// src/db/SessionProvider.tsx
 import React, {
   createContext,
   useContext,
@@ -354,7 +354,8 @@ export const SessionProvider: React.FC<{ children: ReactNode }> = ({
   useEffect(() => {
     if (currentSessionId) {
       const basePath = "/session";
-      if (location.pathname !== `${basePath}/${currentSessionId}`) {
+      // Only redirect if we're already in a session-related route
+      if (location.pathname.startsWith(basePath) && location.pathname !== `${basePath}/${currentSessionId}`) {
         console.log('[sessioncontext] ROUTING NAVIGATE');
         navigate(`${basePath}/${currentSessionId}`);
       }

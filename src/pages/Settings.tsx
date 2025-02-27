@@ -6,15 +6,14 @@ import { Label } from "@/components/ui/label"
 import { Separator } from "@/components/ui/separator"
 import { Switch } from "@/components/ui/switch"
 import { Link } from 'react-router-dom';
-import { Brain, ChevronLeft, Download, HeartPulse, KeyRound, LifeBuoy, Mail, MessageSquare, Trash2, Upload } from "lucide-react"
+import { Brain, ChevronLeft, Download, HeartPulse, KeyRound, LifeBuoy, Mail, MessageSquare } from "lucide-react"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { PlanToggle } from "@/components/ui/plan-toggle"
 import { useUser, RedirectToSignIn, useAuth } from "@clerk/clerk-react";
 import { useTitleGeneration } from "@/db/session-store-extension";
-import { useSessionContext } from "@/db/SessionContext";
+import { useSessionContext } from "@/lib/SessionProvider";
 import { useState, useRef } from "react";
-import { Textarea } from "@/components/ui/textarea";
 
 // Import React FilePond
 import { FilePond } from "react-filepond";
@@ -188,7 +187,6 @@ export default function SettingsPage() {
                             </CardHeader>
                             <CardContent className="space-y-4">
                                 <div className="flex flex-col space-y-2">
-                                    <Label>Import from backup</Label>
                                     <div className="space-y-4">
                                         
                                         {/* FilePond Component */}
@@ -277,250 +275,6 @@ export default function SettingsPage() {
                                             }}
                                         />
 
-                                        {/* Fallback Manual Upload */}
-                                        <div className="mt-4">
-                                            <Label className="mb-2 block">Alternative Manual Upload</Label>
-                                            <div className="flex space-x-2">
-                                                <Input
-                                                    type="file"
-                                                    accept=".json,application/json"
-                                                    className="flex-1"
-                                                    onChange={(e) => {
-                                                        if (e.target.files && e.target.files.length > 0) {
-                                                            const selectedFile = e.target.files[0];
-                                                            setFiles([selectedFile as File]);
-                                                        }
-                                                    }}
-                                                />
-                                                <Button
-                                                    variant="secondary"
-                                                    onClick={async () => {
-                                                        try {
-                                                            // Validate JSON before sending
-                                                            let jsonData;
-                                                            try {
-                                                                jsonData = JSON.parse(jsonText);
-                                                                if (!Array.isArray(jsonData)) {
-                                                                    throw new Error('JSON data must be an array of sessions');
-                                                                }
-                                                            } catch (parseError) {
-                                                                setImportStatus({
-                                                                    type: 'error',
-                                                                    message: `Invalid JSON: ${(parseError as Error).message}`
-                                                                });
-                                                                return;
-                                                            }
-
-                                                            setImportStatus({
-                                                                type: 'info',
-                                                                message: 'Processing import...'
-                                                            });
-
-                                                            // Log what we're sending
-                                                            console.log('Sending data to direct-import:', jsonData);
-
-                                                            const token = await getToken();
-                                                            const response = await fetch('http://localhost:3001/api/chat/normalize', {
-                                                                method: 'POST',
-                                                                headers: {
-                                                                    'Content-Type': 'application/json',
-                                                                    'x-user-id': user.id,
-                                                                    'Authorization': `Bearer ${token || user.id}`
-                                                                },
-                                                                body: jsonText
-                                                            });
-
-                                                            console.log('Response status:', response.status);
-
-                                                            // Get response as text first to inspect it
-                                                            const rawResponse = await response.text();
-                                                            console.log('Raw response:', rawResponse);
-
-                                                            let result;
-                                                            try {
-                                                                result = JSON.parse(rawResponse);
-                                                            } catch (e) {
-                                                                // If response isn't JSON, use the raw text
-                                                                console.error('Failed to parse response as JSON:', e);
-                                                                if (response.ok) {
-                                                                    setImportStatus({
-                                                                        type: 'success',
-                                                                        message: `Import successful, but received non-JSON response`
-                                                                    });
-                                                                } else {
-                                                                    throw new Error(`Server error (status ${response.status}): ${rawResponse}`);
-                                                                }
-                                                                return;
-                                                            }
-
-                                                            // Handle the parsed response
-                                                            if (response.ok) {
-                                                                setImportStatus({
-                                                                    type: 'success',
-                                                                    message: result.message || 'Import successful'
-                                                                });
-                                                            } else {
-                                                                throw new Error(result.message || `Server error (status ${response.status})`);
-                                                            }
-                                                        } catch (error) {
-                                                            console.error('Text import error:', error);
-                                                            setImportStatus({
-                                                                type: 'error',
-                                                                message: `Import failed: ${(error as Error).message}`
-                                                            });
-                                                        }
-                                                    }}
-                                                >
-                                                    <Upload className="mr-2 h-4 w-4" />
-                                                    Upload
-                                                </Button>
-                                            </div>
-                                        </div>
-
-                                        {/* Direct JSON Import */}
-                                        <div className="mt-4">
-                                            <Label className="mb-2 block">Direct JSON Import</Label>
-                                            <Button
-                                                variant="secondary"
-                                                className="w-full"
-                                                onClick={async () => {
-                                                    if (!files || files.length === 0) {
-                                                        setImportStatus({
-                                                            type: 'error',
-                                                            message: 'Please select a file first'
-                                                        });
-                                                        return;
-                                                    }
-
-                                                    try {
-                                                        const file = files[0];
-                                                        const fileContent = await file.text();
-                                                        let jsonData;
-
-                                                        try {
-                                                            jsonData = JSON.parse(fileContent);
-                                                        } catch (parseError) {
-                                                            throw new Error('Invalid JSON format in file');
-                                                        }
-
-                                                        // Send the parsed JSON directly to our API
-                                                        const response = await fetch('http://localhost:3001/api/chat/normalize', {
-                                                            method: 'POST',
-                                                            headers: {
-                                                                'Content-Type': 'application/json',
-                                                                'x-user-id': user.id,
-                                                                'Authorization': `Bearer ${user.id}`
-                                                            },
-                                                            body: JSON.stringify(jsonData)
-                                                        });
-
-                                                        if (!response.ok) {
-                                                            const errorText = await response.text();
-                                                            throw new Error(`Import failed: ${errorText}`);
-                                                        }
-
-                                                        const result = await response.json();
-                                                        setImportStatus({
-                                                            type: 'success',
-                                                            message: result.message || 'Import successful'
-                                                        });
-                                                    } catch (error) {
-                                                        console.error('Direct JSON import error:', error);
-                                                        setImportStatus({
-                                                            type: 'error',
-                                                            message: `Import failed: ${(error as Error).message}`
-                                                        });
-                                                    }
-                                                }}
-                                            >
-                                                <Upload className="mr-2 h-4 w-4" />
-                                                Process Selected File as JSON
-                                            </Button>
-                                        </div>
-
-                                        {/* Simple JSON Import */}
-                                        <div className="mt-6 p-4 border rounded-md bg-gray-50">
-                                            <Label className="text-lg font-semibold">Simple JSON Import</Label>
-                                            <p className="text-sm text-muted-foreground mb-4">
-                                                Paste your JSON directly here to bypass file upload issues.
-                                            </p>
-
-                                            <Textarea
-                                                placeholder="Paste your JSON data here..."
-                                                className="min-h-[200px] mb-4 font-mono text-sm"
-                                                value={jsonText}
-                                                onChange={(e) => setJsonText(e.target.value)}
-                                            />
-
-                                            <Button
-                                                className="w-full"
-                                                onClick={async () => {
-                                                    try {
-                                                        // Validate JSON before sending
-                                                        let jsonData;
-                                                        try {
-                                                            jsonData = JSON.parse(jsonText);
-                                                            if (!Array.isArray(jsonData)) {
-                                                                throw new Error('JSON data must be an array of sessions');
-                                                            }
-                                                        } catch (parseError) {
-                                                            setImportStatus({
-                                                                type: 'error',
-                                                                message: `Invalid JSON: ${(parseError as Error).message}`
-                                                            });
-                                                            return;
-                                                        }
-
-                                                        setImportStatus({
-                                                            type: 'info',
-                                                            message: 'Processing import...'
-                                                        });
-
-                                                        const response = await fetch('http://localhost:3001/api/chat/normalize', {
-                                                            method: 'POST',
-                                                            headers: {
-                                                                'Content-Type': 'application/json',
-                                                                'x-user-id': user.id,
-                                                                'Authorization': `Bearer ${user.id}`
-                                                            },
-                                                            body: jsonText
-                                                        });
-
-                                                        const text = await response.text();
-                                                        let result;
-
-                                                        try {
-                                                            result = JSON.parse(text);
-                                                        } catch (e) {
-                                                            // If response isn't JSON, use the raw text
-                                                            if (response.ok) {
-                                                                setImportStatus({
-                                                                    type: 'success',
-                                                                    message: `Import successful. Server response: ${text}`
-                                                                });
-                                                            } else {
-                                                                throw new Error(`Server error: ${text}`);
-                                                            }
-                                                            return;
-                                                        }
-
-                                                        setImportStatus({
-                                                            type: 'success',
-                                                            message: result.message || 'Import successful'
-                                                        });
-                                                    } catch (error) {
-                                                        console.error('Text import error:', error);
-                                                        setImportStatus({
-                                                            type: 'error',
-                                                            message: `Import failed: ${(error as Error).message}`
-                                                        });
-                                                    }
-                                                }}
-                                            >
-                                                Process JSON Text
-                                            </Button>
-                                        </div>
-
                                         {/* Status alerts */}
                                         {importStatus && (
                                             <Alert className={importStatus.type === 'success' ? 'bg-green-50' : 'bg-red-50'}>
@@ -531,6 +285,8 @@ export default function SettingsPage() {
                                     </div>
                                 </div>
                                 <Separator />
+
+                                {/* Export JSON text area */}
                                 <div className="flex flex-col space-y-2">
                                     <Label>Export sessions</Label>
                                     <div className="flex space-x-2">
@@ -548,6 +304,8 @@ export default function SettingsPage() {
                                     </div>
                                 </div>
                                 <Separator />
+
+                                {/* Generate Titles */}
                                 <div className="flex flex-col space-y-2">
                                     <Label>Chat Titles</Label>
                                     <div className="flex space-x-2">
@@ -564,16 +322,9 @@ export default function SettingsPage() {
                                         </Button>
                                     </div>
                                 </div>
-                            </CardContent>
-                        </Card>
-
-                        {/* Other right column cards */}
-                        <Card>
-                            <CardHeader>
-                                <CardTitle>Cloud Sync</CardTitle>
-                                <CardDescription>Securely sync your therapy sessions across devices</CardDescription>
-                            </CardHeader>
-                            <CardContent className="space-y-4">
+                                <Separator />
+                                
+                                {/* Cloud Sync */}
                                 <div className="flex items-center justify-between">
                                     <div className="space-y-0.5">
                                         <Label htmlFor="cloud-sync">Enable Cloud Sync</Label>
@@ -581,20 +332,10 @@ export default function SettingsPage() {
                                     </div>
                                     <Switch id="cloud-sync" />
                                 </div>
-                                <Separator />
-                                <div className="space-y-2">
-                                    <Label>Delete Synced History</Label>
-                                    <p className="text-sm text-muted-foreground">
-                                        Remove all synced data from our servers. This action cannot be undone.
-                                    </p>
-                                    <Button variant="destructive">
-                                        <Trash2 className="mr-2 h-4 w-4" />
-                                        Delete Synced History
-                                    </Button>
-                                </div>
                             </CardContent>
                         </Card>
 
+                        {/* Delete Account Card */}
                         <Card>
                             <CardHeader>
                                 <CardTitle className="text-destructive">Delete Account and Data</CardTitle>
