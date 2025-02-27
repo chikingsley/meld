@@ -37,9 +37,9 @@ const SessionContext = createContext<SessionContextState>({
   error: null,
   isInitialized: false,
   isVoiceMode: true,
-  setVoiceMode: () => {},
+  setVoiceMode: () => { },
   createSession: () => Promise.resolve(null),
-  selectSession: () => {},
+  selectSession: () => { },
   deleteSession: () => Promise.resolve(),
   updateSession: () => Promise.resolve(),
 });
@@ -56,11 +56,18 @@ export const SessionProvider: React.FC<{ children: ReactNode }> = ({
   const [isInitialized, setIsInitialized] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
-  
+
   // Refs for operation locks
   const initializationLock = useRef<boolean>(false);
   const sessionCreationLock = useRef<boolean>(false);
   const sessionDeletionLock = useRef<boolean>(false);
+
+  // Reset error when user changes
+  useEffect(() => {
+    if (userLoaded) {
+      setError(null);
+    }
+  }, [userLoaded]);
 
   // Stable navigation function
   const navigateToSession = useCallback((sessionId: string) => {
@@ -70,7 +77,7 @@ export const SessionProvider: React.FC<{ children: ReactNode }> = ({
   // Load sessions with retry logic
   const loadSessions = useCallback(async (retryCount = 3) => {
     if (!userLoaded || !user?.id) {
-      console.log("[loadSessions] User not loaded or no ID.");
+      console.log("[loadSessions] User not loaded or no ID, skipping.");
       return;
     }
 
@@ -97,18 +104,21 @@ export const SessionProvider: React.FC<{ children: ReactNode }> = ({
   // Initialize the context
   useEffect(() => {
     const initialize = async () => {
-      if (initializationLock.current) return;
+      if (initializationLock.current || !userLoaded) {
+        return;
+      }
+
+      // If user is loaded but not logged in, set initialized but with error
+      if (userLoaded && !user?.id) {
+        setIsInitialized(true);
+        setError(new SessionError('User not logged in', 'USER_NOT_LOGGED_IN', true));
+        return;
+      }
+
       initializationLock.current = true;
+      setError(null);
 
       try {
-        if (!userLoaded || !user?.id) {
-          throw new SessionError(
-            'User not loaded',
-            'USER_NOT_LOADED',
-            true
-          );
-        }
-
         await loadSessions();
         setIsInitialized(true);
       } catch (error) {
@@ -121,7 +131,7 @@ export const SessionProvider: React.FC<{ children: ReactNode }> = ({
     initialize();
   }, [userLoaded, user?.id, loadSessions]);
 
-  // Create session with proper locking and retries
+  // In SessionProvider.tsx
   const createSession = useCallback(async (): Promise<string | null> => {
     if (sessionCreationLock.current) {
       console.warn('Session creation already in progress');
@@ -138,22 +148,31 @@ export const SessionProvider: React.FC<{ children: ReactNode }> = ({
 
     try {
       const newSession = await sessionStore.addSession();
+
+      if (!newSession || !newSession.id) {
+        throw new Error('Failed to create session: Invalid session data');
+      }
+
       const formattedSession = formatSession(newSession);
-      
-      // Use functional updates to ensure state consistency
+
+      // Update state
       setSessions(prev => [formattedSession, ...prev]);
       setCurrentSessionId(newSession.id);
-      
-      // Only navigate after state is updated
-      await new Promise(resolve => setTimeout(resolve, 0));
-      navigateToSession(newSession.id);
-      
+
+      // Wait for state updates to complete before navigation
+      await new Promise(resolve => setTimeout(resolve, 50));
+
+      // Navigate only if still the current session
+      if (newSession.id === currentSessionId) {
+        navigateToSession(newSession.id);
+      }
+
       return newSession.id;
     } catch (err) {
-      const sessionError = new SessionError(
-        'Failed to create session',
-        'SESSION_CREATE_FAILED',
-        true
+      console.error('Session creation error:', err);
+      const sessionError = createSessionError(
+        err,
+        'Failed to create session'
       );
       setError(sessionError);
       throw sessionError;
@@ -161,7 +180,7 @@ export const SessionProvider: React.FC<{ children: ReactNode }> = ({
       sessionCreationLock.current = false;
       setLoading(false);
     }
-  }, [user?.id, userLoaded, navigateToSession]);
+  }, [user?.id, userLoaded, navigateToSession, currentSessionId]);
 
   // Delete session with locking
   const deleteSession = useCallback(async (sessionId: string) => {
@@ -251,8 +270,8 @@ export const SessionProvider: React.FC<{ children: ReactNode }> = ({
 
   // Handle URL and session synchronization
   useEffect(() => {
-    if (!userLoaded || !user?.id) {
-      console.log("[SessionContext] Routing useEffect: Waiting for user...");
+    if (!isInitialized || !userLoaded || !user?.id) {
+      console.log("[SessionContext] Waiting for initialization...");
       return;
     }
 
@@ -326,7 +345,7 @@ export const SessionProvider: React.FC<{ children: ReactNode }> = ({
     };
 
     handleUrlSession();
-  }, [userLoaded, user?.id, sessionIdToUse, currentSessionId, navigateToSession, createSession, location.pathname, sessions.length]);
+  }, [isInitialized, userLoaded, user?.id, sessionIdToUse, currentSessionId, navigateToSession, createSession, location.pathname, sessions.length]);
 
   // Select a session (only sets ID)
   const selectSession = useCallback((sessionId: string) => {

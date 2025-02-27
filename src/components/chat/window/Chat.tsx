@@ -177,12 +177,17 @@ export default function ClientComponent({ sessionId: urlSessionId, scrollToMessa
               : undefined;
 
             const Message: Message = {
-              message: {
-                role: msg.message.role || 'user',
-                content: msg.message.content || ''
-              },
-              prosody: prosodyScores,
+              id: messageId || `msg-${new Date().toISOString()}`,
+              sessionId: urlSessionId || '',
+              content: msg.message.content || '',
+              role: msg.message.role === 'user' || msg.message.role === 'assistant' || msg.message.role === 'system' 
+                ? msg.message.role 
+                : 'user',
               timestamp: msg.receivedAt?.toISOString() || new Date().toISOString(),
+              metadata: {
+                emotions: prosodyScores,
+                prosody: prosodyScores
+              }
             };
 
             // Only pass urlSessionId if it's not null
