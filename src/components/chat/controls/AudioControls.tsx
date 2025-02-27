@@ -1,7 +1,7 @@
 import { memo } from "react";
 import { useFFTStore } from "@/stores/useFFTStore";
-import { MuteToggle } from "./MuteToggle";
-import MicFFT from "./MicFFT";
+import { MuteToggle } from "../audio/MuteToggle";
+import MicFFT from "../audio/MicFFT";
 
 export const AudioControls = memo(() => {
   const micFft = useFFTStore(state => state.micFft);

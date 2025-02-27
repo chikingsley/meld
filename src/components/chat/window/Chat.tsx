@@ -1,7 +1,8 @@
 // src/components/chat-window/Chat.tsx
 import { useVoice } from "@/providers/VoiceProvider";
-import Messages from "@/components/chat-window/Messages.tsx";
-import BottomControls from "../chat-input/BottomControls";
+import Messages from "@/components/chat/window/Messages";
+import BottomControls from "@/components/chat/controls/BottomControls.tsx";
+import { useChatStore } from "@/stores/useChatStore";
 import { ComponentRef, useEffect, useRef, useState, useMemo, useCallback } from "react";
 import { sessionStore } from "@/db/session-store";
 import { Message } from '@/types/messages';
@@ -28,6 +29,8 @@ interface ExtendedMessagesProps {
 
 export default function ClientComponent({ sessionId: urlSessionId, scrollToMessageId, isTimelineView = false }: ClientComponentProps) {
   const { user } = useUser();
+  const store = useChatStore();
+
   const timeout = useRef<number | null>(null);
   
   const ref = useRef<ComponentRef<typeof Messages> | null>(null);
@@ -91,6 +94,7 @@ export default function ClientComponent({ sessionId: urlSessionId, scrollToMessa
 
   // Create a unique ID for each message based on content and role
   const createMessageId = (msg: Message | JSONMessage | ConnectionMessage, sessionId?: string) => {
+    console.log('ZZZZZZZ /// Creating message ID for:', msg);
     if ('type' in msg && (msg.type === 'socket_connected' || msg.type === 'socket_disconnected')) {
       return `${msg.type}-${msg.receivedAt.toISOString()}`;
     } else if ('message' in msg) {

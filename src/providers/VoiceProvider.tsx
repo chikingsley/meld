@@ -13,26 +13,26 @@ import {
 } from 'react';
 
 import { noop } from '@/lib/hume/noop';
-import { useCallDuration } from '../hooks/useCallDuration';
-import { useEncoding } from '../hooks/useEncoding';
-import { useMessages } from '../hooks/useMessages';
-import { useMicrophone } from '../hooks/useMicrophone';
-import { useSoundPlayer } from '../hooks/useSoundPlayer';
-import { useToolStatus } from '../hooks/useToolStatus';
+import { useCallDuration } from '@/hooks/hume/useCallDuration';
+import { useEncoding } from '@/hooks/hume/useEncoding';
+import { useMessages } from '@/hooks/hume/useMessages';
+import { useMicrophone } from '@/hooks/hume/useMicrophone';
+import { useSoundPlayer } from '@/hooks/hume/useSoundPlayer';
+import { useToolStatus } from '@/hooks/useToolStatus';
 import { usePlayerStore } from '@/stores/usePlayerStore';
 import {
   SocketConfig,
   ToolCallHandler,
   useVoiceClient,
   VoiceReadyState,
-} from '../hooks/useVoiceClient';
+} from '@/hooks/hume/useVoiceClient';
 import {
   AssistantTranscriptMessage,
   AudioOutputMessage,
   JSONMessage,
   UserInterruptionMessage,
   UserTranscriptMessage,
-} from '../types/hume-messages';
+} from '@/types/hume-messages';
 
 type VoiceError =
   | { type: 'socket_error'; message: string; error?: Error }

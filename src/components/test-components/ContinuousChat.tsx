@@ -1,6 +1,6 @@
 // src/components/chat-window/ContinuousChat.tsx
-import Messages from "@/components/chat-window/Messages";
-import BottomControls from "@/components/chat-input/BottomControls";
+import Messages from "@/components/chat/window/Messages";
+import BottomControls from "@/components/chat/controls/BottomControls.tsx";
 import { ComponentRef, useEffect, useRef, useState, useMemo } from "react";
 import type { JSONMessage } from "@/types/hume-messages";
 import type { ConnectionMessage } from "@/lib/hume/connection-message";

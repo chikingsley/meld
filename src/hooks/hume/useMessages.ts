@@ -6,7 +6,7 @@ import type {
   AssistantTranscriptMessage,
   JSONMessage,
   UserTranscriptMessage,
-} from '../types/hume-messages';
+} from '../../types/hume-messages';
 import { keepLastN } from '@/lib/hume/keepLastN';
 
 export const useMessages = ({

@@ -1,5 +1,5 @@
-import ContinuousChat from '@/pages/testcomponents/ContinuousChat';
-import EnhancedSidebar from '@/pages/testcomponents/EnhancedSidebar';
+import ContinuousChat from '@/components/test-components/ContinuousChat';
+import EnhancedSidebar from '@/components/test-components/EnhancedSidebar';
 
 export default function Test() {
   return (

@@ -1,9 +1,9 @@
 import { convertBase64ToBlob } from 'hume';
 import { useCallback, useRef, useState } from 'react';
 
-import { convertLinearFrequenciesToBark } from '../lib/hume/convertFrequencyScale';
+import { convertLinearFrequenciesToBark } from '@/lib/hume/convertFrequencyScale';
 import { generateEmptyFft } from '@/lib/hume/generateEmptyFTT';
-import type { AudioOutputMessage } from '../types/hume-messages';
+import type { AudioOutputMessage } from '@/types/hume-messages';
 import { useFFTStore } from '@/stores/useFFTStore';
 import { useMuteStore } from '@/stores/useMuteStore';
 import { usePlayerStore } from '@/stores/usePlayerStore';
