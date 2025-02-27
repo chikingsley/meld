@@ -11,7 +11,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { PlanToggle } from "@/components/ui/plan-toggle"
 import { useUser, RedirectToSignIn, useAuth } from "@clerk/clerk-react";
-import { useTitleGeneration } from "@/db/session-store-extension";
+import { useTitleGeneration } from "@/utils/generateTitlesUtils";
 import { useSessionContext } from "@/providers/SessionProvider";
 import { useState, useRef } from "react";
 

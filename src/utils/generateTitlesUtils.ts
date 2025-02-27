@@ -1,4 +1,4 @@
-import { sessionStore } from './session-store';
+import { sessionStore } from '@/db/session-store.ts';
 import { generateSessionTitle } from '@/lib/title-generator';
 
 // Extend the session store with title generation

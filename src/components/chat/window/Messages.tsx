@@ -1,4 +1,4 @@
-// src/components/chat-window/Messages.tsx
+// src/components/chat/window/Messages.tsx
 import { cn } from "@/utils/classNames";
 import Expressions from "./Expressions";
 import { AnimatePresence, motion } from "framer-motion";

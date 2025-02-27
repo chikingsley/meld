@@ -1,5 +1,5 @@
 // src/providers/TextProvider.tsx
-import { useCallback, useState } from 'react';
+import { useCallback, useState, useRef } from 'react';
 import { useSessionStore } from '@/stores/useSessionStore';
 import { useSessionContext } from "@/providers/SessionProvider"
 import type {
@@ -43,7 +43,10 @@ export function useText({
   const [lastUserMessage, setLastUserMessage] = 
     useState<UserTranscriptMessage | null>(null);
   
-  const { currentSessionId } = useSessionContext();
+  const { currentSessionId, createSession } = useSessionContext();
+  // Add a ref to track if we've created a session for this text conversation
+  const hasCreatedSessionRef = useRef(false);
+  
   const { sendMessage: sendCompletion, isStreaming } = useCompletions({
     sessionId: currentSessionId!,
     onMessage: (message) => {
@@ -58,6 +61,20 @@ export function useText({
   const sendMessage = useCallback(async (content: string) => {
     try {
       if (!content) return;
+
+      // Create a session if this is the first message and no session exists yet
+      let sessionId = currentSessionId;
+      if (!sessionId && !hasCreatedSessionRef.current) {
+        console.log("[TextProvider] Creating new session for first text message");
+        sessionId = await createSession();
+        hasCreatedSessionRef.current = true;
+      }
+      
+      // If we still don't have a session ID, we can't proceed
+      if (!sessionId) {
+        console.error("[TextProvider] Failed to create or retrieve session ID");
+        return;
+      }
 
       // Add user message
       const now = new Date();
@@ -106,17 +123,30 @@ export function useText({
       console.error('Error in text messages:', error);
       throw error;
     }
-  }, [messageHistoryLimit, sendCompletion, setMessages, onMessage]);
+  }, [messageHistoryLimit, sendCompletion, setMessages, onMessage, currentSessionId, createSession]);
+
+  // Reset the session creation flag when we switch to a new session
+  // or when we clear messages
+  const clearMessages = useCallback(() => {
+    setMessages([]);
+    setLastUserMessage(null);
+    setLastAssistantMessage(null);
+    hasCreatedSessionRef.current = false;
+  }, [setMessages]);
+  
+  // Reset the session creation flag when currentSessionId changes
+  // This ensures we don't try to create a new session if we switch to an existing one
+  const previousSessionIdRef = useRef<string | null>(null);
+  if (currentSessionId !== previousSessionIdRef.current) {
+    previousSessionIdRef.current = currentSessionId;
+    hasCreatedSessionRef.current = !!currentSessionId; // If we have a session ID, consider it created
+  }
 
   return {
     sendMessage,
     lastUserMessage,
     lastAssistantMessage,
     isStreaming,
-    clearMessages: useCallback(() => {
-      setMessages([]);
-      setLastUserMessage(null);
-      setLastAssistantMessage(null);
-    }, [])
+    clearMessages
   };
 }

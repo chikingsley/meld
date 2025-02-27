@@ -1,7 +1,7 @@
 // src/App.tsx
 import { VoiceProvider } from '@/providers/VoiceProvider';
 import { useEffect, useState } from 'react';
-import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
+import { BrowserRouter, Route, Routes } from 'react-router-dom';
 import { ClerkProvider } from '@clerk/react-router'
 import { getHumeAccessToken } from './utils/getHumeAccessToken';
 import { Layout } from '@/layout';

@@ -2,9 +2,11 @@
 import { useVoice } from "@/providers/VoiceProvider";
 import Messages from "@/components/chat/window/Messages";
 import BottomControls from "@/components/chat/controls/BottomControls.tsx";
+import { useChatStore } from "@/stores/useChatStore";
 import { ComponentRef, useEffect, useRef, useState, useMemo, useCallback } from "react";
 import { sessionStore } from "@/db/session-store";
 import { Message } from '@/types/messages';
+import { prismaStore } from "@/db/prisma-store";
 import { useSessionStore } from "@/stores/useSessionStore";
 import type { JSONMessage } from "@/types/hume-messages";
 import type { ConnectionMessage } from "@/lib/hume/connection-message";
@@ -15,14 +17,24 @@ interface ClientComponentProps {
   sessionId: string | null;
   scrollToMessageId?: string;
   onNewSession?: () => void;
+  isTimelineView?: boolean;
 }
 
-export default function ClientComponent({ sessionId: urlSessionId, scrollToMessageId }: ClientComponentProps) {
+// First, let's define a modified interface for the Messages component
+// You'll need to also update your actual Messages component to match this
+interface ExtendedMessagesProps {
+  messages: any[];
+  setMessageRef?: (id: string, el: HTMLDivElement | null) => void;
+}
+
+export default function ClientComponent({ sessionId: urlSessionId, scrollToMessageId, isTimelineView = false }: ClientComponentProps) {
   const { user } = useUser();
+  const store = useChatStore();
 
   const timeout = useRef<number | null>(null);
 
   const ref = useRef<ComponentRef<typeof Messages> | null>(null);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
   const messageRefs = useRef<{ [key: string]: HTMLDivElement }>({});
 
   const { clearMessages, status } = useVoice();
@@ -47,7 +59,7 @@ export default function ClientComponent({ sessionId: urlSessionId, scrollToMessa
       setApiLoading(true);
       console.log('Fetching messages from API for session:', sessionId);
 
-      const messages = await sessionStore.getMessages(sessionId);
+      const messages = await prismaStore.getMessages(sessionId);
       console.log('Received API messages:', messages);
 
       // Map API messages to Message type
@@ -451,6 +463,13 @@ export default function ClientComponent({ sessionId: urlSessionId, scrollToMessa
       return item;
     });
   }, [messagesWithMarkers]);
+
+  // Helper function to set message refs with proper typing
+  const setMessageRef = (id: string, el: HTMLDivElement | null) => {
+    if (id && el) {
+      messageRefs.current[id] = el;
+    }
+  };
 
   // Add this before your main return statement
   if (apiLoading && storedMessages.length === 0 && messages.length === 0) {
