@@ -94,6 +94,22 @@ export const SessionProvider: React.FC<{ children: ReactNode }> = ({
     throw createSessionError(lastError, 'Failed to load sessions');
   }, [user?.id, userLoaded]);
 
+  // Add a more defensive check for user loading
+  useEffect(() => {
+    if (userLoaded && user?.id) {
+      console.log("[SessionContext] User loaded successfully:", user.id);
+      setError(null); // Clear any previous errors when user successfully loads
+      loadSessions(); // Safely load sessions after user is confirmed loaded
+    } else if (userLoaded && !user?.id) {
+      console.log("[SessionContext] User loaded but no user ID found");
+      // User is loaded but no ID - user might be logged out
+      setSessions([]);
+      setCurrentSessionId(null);
+    } else {
+      console.log("[SessionContext] Waiting for user to load...");
+    }
+  }, [userLoaded, user?.id, loadSessions]);
+
   // Initialize the context
   useEffect(() => {
     const initialize = async () => {
@@ -123,13 +139,15 @@ export const SessionProvider: React.FC<{ children: ReactNode }> = ({
 
   // Create session with proper locking and retries
   const createSession = useCallback(async (): Promise<string | null> => {
-    if (sessionCreationLock.current) {
-      console.warn('Session creation already in progress');
+    if (!userLoaded || !user?.id) {
+      console.error("[createSession] User not loaded or no user ID");
+      setError(createSessionError(new Error("User not loaded"), "Failed to create session"));
       return null;
     }
 
-    if (!userLoaded || !user?.id) {
-      throw new SessionError('User not loaded', 'USER_NOT_LOADED', true);
+    if (sessionCreationLock.current) {
+      console.warn('Session creation already in progress');
+      return null;
     }
 
     sessionCreationLock.current = true;
@@ -258,12 +276,18 @@ export const SessionProvider: React.FC<{ children: ReactNode }> = ({
 
     const handleUrlSession = async () => {
       try {
+        // Double-check user is still loaded before proceeding
+        if (!userLoaded || !user?.id) {
+          console.log("[SessionContext] User no longer loaded during handleUrlSession");
+          return;
+        }
+
         console.log("[SessionContext] handleUrlSession - sessionIdToUse:", sessionIdToUse);
 
-        // 1. If on the root path AND no sessions: Create
+        // 1. If on the root path AND no sessions: Don't create automatically
         if (location.pathname === '/' && sessions.length === 0) {
-          console.log("[SessionContext] Root path, no sessions. Creating.");
-          await createSession();
+          console.log("[SessionContext] Root path, no sessions. Waiting for user action.");
+          // No automatic session creation
           return;
         }
 
@@ -298,26 +322,31 @@ export const SessionProvider: React.FC<{ children: ReactNode }> = ({
               navigateToSession(sessionIdToUse);
             }
           } else {
-            // Invalid session ID: navigate to first session or create
-            console.log("[SessionContext] Session not found. Navigating to first or creating.");
+            // Invalid session ID: navigate to first session or stay on current page
+            console.log("[SessionContext] Session not found. Navigating to first session if available.");
             const storedSessions = await sessionStore.getUserSessions(user.id);
             if (storedSessions.length > 0) {
               navigateToSession(storedSessions[0].id);
             } else {
-              await createSession();
+              // Don't create a session automatically, just stay on current page
+              if (location.pathname.startsWith('/session/')) {
+                // If on a session page with invalid ID, redirect to root
+                navigate('/');
+              }
             }
           }
           return;
         }
 
-        // 3. No valid sessionId, on /session path, no currentSessionId: Use existing or create
+        // 3. No valid sessionId, on /session path, no currentSessionId: Use existing or redirect to home
         if (!sessionIdToUse && location.pathname.startsWith('/session') && !currentSessionId) {
-          console.log("[SessionContext] No sessionIdToUse, on /session, no current ID. Using existing or creating.");
+          console.log("[SessionContext] No sessionIdToUse, on /session, no current ID. Checking for existing sessions.");
           const storedSessions = await sessionStore.getUserSessions(user.id);
           if (storedSessions.length > 0) {
             navigateToSession(storedSessions[0].id);
           } else {
-            await createSession();
+            // Don't create a session automatically, redirect to home
+            navigate('/');
           }
         }
       } catch (error) {
@@ -326,7 +355,7 @@ export const SessionProvider: React.FC<{ children: ReactNode }> = ({
     };
 
     handleUrlSession();
-  }, [userLoaded, user?.id, sessionIdToUse, currentSessionId, navigateToSession, createSession, location.pathname, sessions.length]);
+  }, [userLoaded, user?.id, sessionIdToUse, currentSessionId, navigateToSession, createSession, location.pathname, sessions.length, navigate]);
 
   // Select a session (only sets ID)
   const selectSession = useCallback((sessionId: string) => {
