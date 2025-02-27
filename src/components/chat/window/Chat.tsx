@@ -2,16 +2,14 @@
 import { useVoice } from "@/providers/VoiceProvider";
 import Messages from "@/components/chat/window/Messages";
 import BottomControls from "@/components/chat/controls/BottomControls.tsx";
-import { useChatStore } from "@/stores/useChatStore";
-import { ComponentRef, useEffect, useRef, useState, useMemo, useCallback } from "react";
+import { ComponentRef, useEffect, useRef, useState, useMemo } from "react";
 import { sessionStore } from "@/db/session-store";
 import { Message } from '@/types/messages';
-import { prismaStore } from "@/db/prisma-store";
 import { useSessionStore } from "@/stores/useSessionStore";
-import type { JSONMessage } from "@/types/hume-messages";
-import type { ConnectionMessage } from "@/lib/hume/connection-message";
 import { useUser } from '@clerk/clerk-react';
 import { format, isToday, isYesterday, isSameWeek, isSameYear } from 'date-fns';
+import { useChat } from "@/hooks/useChat";
+import { createMessageId } from '@/utils/message-utils';
 
 interface ClientComponentProps {
   sessionId: string | null;
@@ -20,94 +18,21 @@ interface ClientComponentProps {
   isTimelineView?: boolean;
 }
 
-// First, let's define a modified interface for the Messages component
-// You'll need to also update your actual Messages component to match this
-interface ExtendedMessagesProps {
-  messages: any[];
-  setMessageRef?: (id: string, el: HTMLDivElement | null) => void;
-}
-
 export default function ClientComponent({ sessionId: urlSessionId, scrollToMessageId, isTimelineView = false }: ClientComponentProps) {
   const { user } = useUser();
-  const store = useChatStore();
+  const { messages: apiMessages, isLoading: apiLoading, storedMessages } = useChat(urlSessionId);
 
   const timeout = useRef<number | null>(null);
-
   const ref = useRef<ComponentRef<typeof Messages> | null>(null);
-  const messagesEndRef = useRef<HTMLDivElement>(null);
   const messageRefs = useRef<{ [key: string]: HTMLDivElement }>({});
 
-  const { clearMessages, status } = useVoice();
+  const { status } = useVoice();
   const messages = useSessionStore(state => state.messages);
   const messagesLength = useSessionStore(state => state.messages.length);
-  const [storedMessages, setStoredMessages] = useState<Message[]>([]);
-
-  // Add a new state for API messages
-  const [apiMessages, setApiMessages] = useState<Message[]>([]);
-  const [apiLoading, setApiLoading] = useState(false);
 
   // New state for continuous mode
   const [allSessions, setAllSessions] = useState<any[]>([]);
   const [allMessages, setAllMessages] = useState<any[]>([]);
-
-  const fetchApiMessages = useCallback(async (sessionId: string) => {
-    console.log('Fetching API messages triggered');
-    if (!sessionId) return;
-
-    try {
-      console.log('Fetching API messages for session ID:', sessionId);
-      setApiLoading(true);
-      console.log('Fetching messages from API for session:', sessionId);
-
-      const messages = await prismaStore.getMessages(sessionId);
-      console.log('Received API messages:', messages);
-
-      // Map API messages to Message type
-      const typedMessages: Message[] = messages.map(apiMsg => ({
-        id: (apiMsg as any).id || `msg-${new Date().toISOString()}`,
-        sessionId: (apiMsg as any).sessionId || urlSessionId || '',
-        content: (apiMsg as any).content || '',
-        role: ((apiMsg as any).role === 'user' || (apiMsg as any).role === 'assistant' || (apiMsg as any).role === 'system')
-          ? (apiMsg as any).role
-          : 'user',
-        timestamp: typeof (apiMsg as any).timestamp === 'string'
-          ? (apiMsg as any).timestamp
-          : new Date((apiMsg as any).timestamp).toISOString(),
-        metadata: {
-          emotions: (apiMsg as any).metadata?.prosody,
-          prosody: (apiMsg as any).metadata?.prosody
-        }
-      }));
-
-      setApiMessages(typedMessages);
-    } catch (error) {
-      console.error('Error fetching API messages:', error);
-    } finally {
-      setApiLoading(false);
-    }
-  }, []);
-
-  // Create a unique ID for each message based on content and role
-  const createMessageId = (msg: Message | JSONMessage | ConnectionMessage, sessionId?: string) => {
-    // Handle socket messages
-    if ('type' in msg && (msg.type === 'socket_connected' || msg.type === 'socket_disconnected')) {
-      return `${msg.type}-${msg.receivedAt.toISOString()}`;
-    }
-    // Handle JSON messages (with message property)
-    else if ('message' in msg) {
-      const content = typeof msg.message === 'object' && msg.message && 'content' in msg.message ? msg.message.content : '';
-      const role = typeof msg.message === 'object' && msg.message && 'role' in msg.message ? msg.message.role : '';
-      const sessionPrefix = sessionId ? `${sessionId}-` : '';
-      return `${sessionPrefix}${role}-${content}`;
-    }
-    else if ('role' in msg && 'content' in msg) {
-      const sessionPrefix = sessionId ? `${sessionId}-` : '';
-      return `${sessionPrefix}${msg.role}-${msg.content}`;
-    }
-    else {
-      return `unknown-${new Date().toISOString()}`;
-    }
-  };
 
   // Load all sessions on mount
   useEffect(() => {
@@ -132,22 +57,6 @@ export default function ClientComponent({ sessionId: urlSessionId, scrollToMessa
       setAllMessages(sortedMessages);
     }
   }, [user?.id]);
-
-  // Load current session messages when urlSessionId changes
-  useEffect(() => {
-    if (urlSessionId) {
-      // Load local messages as before
-      const messages = sessionStore.getMessages(urlSessionId);
-      setStoredMessages(messages);
-
-      // Also fetch from API
-      fetchApiMessages(urlSessionId);
-
-      if (messages.length === 0) {
-        clearMessages();
-      }
-    }
-  }, [urlSessionId, clearMessages, fetchApiMessages]);
 
   // Save messages to session store
   useEffect(() => {
@@ -198,10 +107,6 @@ export default function ClientComponent({ sessionId: urlSessionId, scrollToMessa
         }
       });
 
-      // Update stored messages to include the new ones
-      const allMessages = sessionStore.getMessages(urlSessionId);
-      setStoredMessages(allMessages);
-
       // Also refresh all sessions when messages change
       if (user?.id) {
         const sessions = sessionStore.getUserSessions(user.id);
@@ -223,13 +128,13 @@ export default function ClientComponent({ sessionId: urlSessionId, scrollToMessa
         setAllMessages(sortedMessages);
       }
     }
-  }, [messagesLength, urlSessionId, status.value, user?.id]);
+  }, [messagesLength, urlSessionId, status.value, user?.id, storedMessages]);
 
   // Convert all stored messages across sessions
   const convertedAllMessages = useMemo(() =>
     allMessages.map(msg => ({
       id: createMessageId(msg, msg.sessionId),
-      type: msg.message && 'role' in msg.message ? 
+      type: msg.message && 'role' in msg.message ?
         msg.message.role === 'user' ? 'user_message' : 'assistant_message'
         : 'unknown',
       message: msg.message || { role: 'system', content: '' },
@@ -427,13 +332,6 @@ export default function ClientComponent({ sessionId: urlSessionId, scrollToMessa
       return item;
     });
   }, [messagesWithMarkers]);
-
-  // Helper function to set message refs with proper typing
-  const setMessageRef = (id: string, el: HTMLDivElement | null) => {
-    if (id && el) {
-      messageRefs.current[id] = el;
-    }
-  };
 
   // Add this before your main return statement
   if (apiLoading && storedMessages.length === 0 && messages.length === 0) {
