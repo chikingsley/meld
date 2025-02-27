@@ -9,7 +9,7 @@ export interface Message {
   id: string;
   sessionId: string;
   content: string;
-  role: 'user' | 'assistant';
+  role: 'user' | 'assistant' | 'system';
   timestamp: Date | string;
   metadata?: MessageMetadata;
 }

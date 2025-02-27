@@ -62,9 +62,18 @@ export const useChatStore = create<ChatState>((set, get) => ({
   },
 
   loadUserSessions: async (userId) => {
+    // Skip if already loading
+    if (get().isLoading) {
+      console.log('[useChatStore] Already loading sessions, skipping');
+      return;
+    }
+
     try {
       set({ isLoading: true });
-      const sessions = await sessionStore.getUserSessions(userId);
+      console.log('[useChatStore] Starting to load sessions for user:', userId);
+      
+      const sessions = await prismaStore.getUserSessions(userId);
+      console.log('[useChatStore] Successfully fetched sessions:', sessions.length);
       
       // Get all messages from all sessions
       const allMessages = sessions.flatMap(session => 
@@ -82,9 +91,12 @@ export const useChatStore = create<ChatState>((set, get) => ({
         allMessages,
         isLoading: false
       });
+      
+      console.log('[useChatStore] Successfully processed and stored sessions');
     } catch (error) {
-      console.error('Error loading user sessions:', error);
+      console.error('[useChatStore] Error loading user sessions:', error);
       set({ isLoading: false });
+      throw error; // Re-throw to allow error handling upstream
     }
   },
 

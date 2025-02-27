@@ -1,83 +1,126 @@
 // src/hooks/useChat.ts
-import { useMemo, useEffect } from 'react';
+import { useMemo, useEffect, useRef } from 'react';
 import { useChatStore } from '@/stores/useChatStore';
 import { useUser } from '@clerk/clerk-react';
 import { sessionStore } from '@/db/session-store';
 import { format, isToday, isYesterday, isSameWeek, isSameYear } from 'date-fns';
 import type { Message } from '@/types/messages';
+import { createMessageId } from '@/utils/message-utils';
 
-// Helper function moved from Chat.tsx
-const createMessageId = (msg: Message, sessionId?: string) => {
-  if ('type' in msg) {
-    return `${msg.type}-${new Date().toISOString()}`;
-  } else {
-    const sessionPrefix = sessionId ? `${sessionId}-` : '';
-    return `${sessionPrefix}${msg.role}-${msg.content}`;
-  }
-};
+interface DateMarker {
+  type: 'date_marker';
+  date: string;
+  timestamp: string;
+  id: string;
+}
+
+interface VoiceCallMarker {
+  type: 'voice_call_marker';
+  duration: string;
+  timestamp: string;
+  id: string;
+}
+
+type MarkerMessage = DateMarker | VoiceCallMarker | Message;
 
 export function useChat(sessionId: string | null) {
   const { user } = useUser();
   const store = useChatStore();
+  const loadingRef = useRef<boolean>(false);
+  const sessionLoadedRef = useRef<string | null>(null);
   
   // Load messages only once when sessionId changes
   useEffect(() => {
-    if (sessionId) {
-      // Use a flag to prevent multiple loads
-      let isSubscribed = true;
+    if (!sessionId || loadingRef.current || sessionLoadedRef.current === sessionId) {
+      return;
+    }
 
-      const loadMessages = async () => {
-        try {
-          const messages = sessionStore.getMessages(sessionId);
-          if (isSubscribed) {
-            store.setMessages(messages);
-          }
-          
-          // Fetch API messages after setting local messages
-          const apiMessages = await store.fetchApiMessages(sessionId);
-          if (isSubscribed && apiMessages) {
-            // Merge API messages with local messages
-            const combined = [...messages, ...apiMessages];
-            store.setMessages(combined);
-          }
-        } catch (error) {
-          console.error('Error loading messages:', error);
+    let isSubscribed = true;
+    loadingRef.current = true;
+
+    const loadMessages = async () => {
+      try {
+        console.log('[useChat] Loading messages for session:', sessionId);
+        
+        // First load local messages
+        const messages = sessionStore.getMessages(sessionId);
+        if (isSubscribed) {
+          store.setCurrentMessages(messages);
         }
-      };
+        
+        // Then fetch API messages if we haven't loaded this session yet
+        if (sessionLoadedRef.current !== sessionId) {
+          console.log('[useChat] Fetching API messages for session:', sessionId);
+          await store.fetchApiMessages(sessionId);
+          if (isSubscribed) {
+            sessionLoadedRef.current = sessionId;
+          }
+        }
+      } catch (error) {
+        console.error('[useChat] Error loading messages:', error);
+      } finally {
+        if (isSubscribed) {
+          loadingRef.current = false;
+        }
+      }
+    };
 
-      loadMessages();
+    loadMessages();
 
-      // Cleanup function
-      return () => {
-        isSubscribed = false;
-      };
-    }
-  }, [sessionId]); // Remove store from dependencies
+    return () => {
+      isSubscribed = false;
+      loadingRef.current = false;
+    };
+  }, [sessionId, store]);
 
-  // Load all sessions for user
+  // Load all sessions for user only once when user is loaded
   useEffect(() => {
-    if (user?.id) {
-      store.loadUserSessions(user.id);
-    }
-  }, [user?.id, store]);
+    let isMounted = true;
+    const loadSessions = async () => {
+      // Skip if no user, sessions already loaded, or store is currently loading
+      if (!user?.id || store.allSessions.length > 0 || store.isLoading) {
+        return;
+      }
+
+      try {
+        console.log('[useChat] Starting to load user sessions for:', user.id);
+        await store.loadUserSessions(user.id);
+        
+        if (isMounted) {
+          console.log('[useChat] Successfully loaded sessions for:', user.id);
+        }
+      } catch (error) {
+        if (isMounted) {
+          console.error('[useChat] Error loading user sessions:', error);
+          // Don't throw here - we've logged the error and the store has been reset
+        }
+      }
+    };
+
+    loadSessions();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [user?.id, store, store.isLoading, store.allSessions.length]);
 
   // Convert messages with IDs
   const messagesWithIds = useMemo(() =>
-    store.messages.map(msg => ({
+    store.currentMessages.map(msg => ({
       ...msg,
       id: createMessageId(msg, sessionId || undefined),
       timestamp: new Date().toISOString(),
       sessionId
     })),
-  [store.messages, sessionId]);
+  [store.currentMessages, sessionId]);
 
   // Add date markers and other markers
   const messagesWithMarkers = useMemo(() => {
-    const result = [];
-    let currentDate = null;
-    let currentSessionId = null;
-    let voiceSessionStart = null;
-    let voiceMessages: any[] = [];
+    const result: MarkerMessage[] = [];
+    let currentDate: string | null = null;
+    let currentSessionId: string | null = null;
+    let voiceSessionStart: string | null = null;
+    let voiceMessages: Message[] = [];
 
     // Sort all messages by timestamp
     const sortedMessages = [...store.allMessages].sort((a, b) => {
@@ -140,7 +183,7 @@ export function useChat(sessionId: string | null) {
           (msg.metadata?.prosody && Object.keys(msg.metadata.prosody || {}).length > 0);
 
         if (isVoiceSession) {
-          voiceSessionStart = msg.timestamp;
+          voiceSessionStart = typeof msg.timestamp === 'string' ? msg.timestamp : msg.timestamp.toISOString();
           voiceMessages = [msg];
         }
       } else if (voiceSessionStart) {
@@ -155,7 +198,7 @@ export function useChat(sessionId: string | null) {
 
   return {
     messages: messagesWithMarkers,
-    isLoading: store.apiLoading,
+    isLoading: store.isLoading,
     addMessage: store.addMessage,
     clearMessages: store.clearMessages,
     storedMessages: store.storedMessages,
