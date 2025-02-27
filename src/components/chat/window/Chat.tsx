@@ -17,7 +17,7 @@ interface ClientComponentProps {
   sessionId: string | null;
   scrollToMessageId?: string;
   onNewSession?: () => void;
-  isTimelineView?: boolean; 
+  isTimelineView?: boolean;
 }
 
 // First, let's define a modified interface for the Messages component
@@ -32,7 +32,7 @@ export default function ClientComponent({ sessionId: urlSessionId, scrollToMessa
   const store = useChatStore();
 
   const timeout = useRef<number | null>(null);
-  
+
   const ref = useRef<ComponentRef<typeof Messages> | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messageRefs = useRef<{ [key: string]: HTMLDivElement }>({});
@@ -63,27 +63,22 @@ export default function ClientComponent({ sessionId: urlSessionId, scrollToMessa
       console.log('Received API messages:', messages);
 
       // Map API messages to Message type
-      const typedMessages: Message[] = messages.map(apiMsg => {
-        // Extract prosody, expressions, and labels from metadata if they exist
-        const metadata = (apiMsg as any).metadata as {
-          prosody?: Record<string, number>,
-          expressions?: Record<string, number>,
-          labels?: Record<string, number>
-        } | null;
+      const typedMessages: Message[] = messages.map(apiMsg => ({
+        id: (apiMsg as any).id || `msg-${new Date().toISOString()}`,
+        sessionId: (apiMsg as any).sessionId || urlSessionId || '',
+        content: (apiMsg as any).content || '',
+        role: ((apiMsg as any).role === 'user' || (apiMsg as any).role === 'assistant' || (apiMsg as any).role === 'system')
+          ? (apiMsg as any).role
+          : 'user',
+        timestamp: typeof (apiMsg as any).timestamp === 'string'
+          ? (apiMsg as any).timestamp
+          : new Date((apiMsg as any).timestamp).toISOString(),
+        metadata: {
+          emotions: (apiMsg as any).metadata?.prosody,
+          prosody: (apiMsg as any).metadata?.prosody
+        }
+      }));
 
-        return {
-          message: {
-            role: (apiMsg as any).role || 'user',
-            content: (apiMsg as any).content || ''
-          },
-          prosody: metadata?.prosody,
-          expressions: metadata?.expressions,
-          labels: metadata?.labels,
-          timestamp: typeof (apiMsg as any).timestamp === 'string'
-            ? (apiMsg as any).timestamp
-            : new Date((apiMsg as any).timestamp).toISOString()
-        };
-      });
       setApiMessages(typedMessages);
     } catch (error) {
       console.error('Error fetching API messages:', error);
@@ -94,16 +89,24 @@ export default function ClientComponent({ sessionId: urlSessionId, scrollToMessa
 
   // Create a unique ID for each message based on content and role
   const createMessageId = (msg: Message | JSONMessage | ConnectionMessage, sessionId?: string) => {
-    console.log('ZZZZZZZ /// Creating message ID for:', msg);
+    // Handle socket messages
     if ('type' in msg && (msg.type === 'socket_connected' || msg.type === 'socket_disconnected')) {
       return `${msg.type}-${msg.receivedAt.toISOString()}`;
-    } else if ('message' in msg) {
+    }
+    // Handle JSON messages (with message property)
+    else if ('message' in msg) {
       const content = typeof msg.message === 'object' && msg.message && 'content' in msg.message ? msg.message.content : '';
       const role = typeof msg.message === 'object' && msg.message && 'role' in msg.message ? msg.message.role : '';
       const sessionPrefix = sessionId ? `${sessionId}-` : '';
       return `${sessionPrefix}${role}-${content}`;
     }
-    return `${msg.type || 'unknown'}-${msg.receivedAt?.toISOString() || new Date().toISOString()}`;
+    else if ('role' in msg && 'content' in msg) {
+      const sessionPrefix = sessionId ? `${sessionId}-` : '';
+      return `${sessionPrefix}${msg.role}-${msg.content}`;
+    }
+    else {
+      return `unknown-${new Date().toISOString()}`;
+    }
   };
 
   // Load all sessions on mount
@@ -221,8 +224,10 @@ export default function ClientComponent({ sessionId: urlSessionId, scrollToMessa
   const convertedAllMessages = useMemo(() =>
     allMessages.map(msg => ({
       id: createMessageId(msg, msg.sessionId),
-      type: msg.message.role === 'user' ? 'user_message' : 'assistant_message',
-      message: msg.message,
+      type: msg.message && 'role' in msg.message ? 
+        msg.message.role === 'user' ? 'user_message' : 'assistant_message'
+        : 'unknown',
+      message: msg.message || { role: 'system', content: '' },
       models: {
         prosody: { scores: msg.prosody },
         expressions: { scores: msg.expressions },
@@ -231,7 +236,8 @@ export default function ClientComponent({ sessionId: urlSessionId, scrollToMessa
       timestamp: msg.timestamp,
       sessionId: msg.sessionId
     })),
-    [allMessages]);
+    [allMessages]
+  );
 
   // Add IDs and timestamps to live messages
   const messagesWithIds = useMemo(() =>
@@ -287,21 +293,21 @@ export default function ClientComponent({ sessionId: urlSessionId, scrollToMessa
   // NEW VERSION - Combine all messages but keep all duplicates
   const combinedMessages = useMemo(() => {
     const messageMap = new Map();
-    
+
     // Add ALL messages from all sessions first with no filtering
     convertedAllMessages.forEach(msg => {
       if (msg.id) {
         messageMap.set(msg.id, msg);
       }
     });
-    
+
     // Then add current session's messages which will override if needed
     messagesWithIds.forEach(msg => {
       if (msg.id) {
         messageMap.set(msg.id, msg);
       }
     });
-  
+
     return Array.from(messageMap.values());
   }, [convertedAllMessages, messagesWithIds]);
 
