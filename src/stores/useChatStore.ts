@@ -6,71 +6,91 @@ import { prismaStore } from '@/db/prisma-store';
 
 interface ChatState {
   // Core message state
-  messages: Message[];
+  currentMessages: Message[];
   storedMessages: Message[];
   apiMessages: Message[];
-  allSessions: any[]; // We should type this properly
+  allSessions: any[]; // We'll type this properly later
   allMessages: Message[];
   
   // Loading states
-  apiLoading: boolean;
-  isTransitioning: boolean;
+  isLoading: boolean;
   
   // Actions
+  setCurrentMessages: (messages: Message[]) => void;
   fetchApiMessages: (sessionId: string) => Promise<void>;
   addMessage: (sessionId: string, message: Message) => Promise<void>;
-  loadUserSessions: (userId: string) => void;
-  setMessages: (messages: Message[]) => void;
+  loadUserSessions: (userId: string) => Promise<void>;
   clearMessages: () => void;
 }
 
 export const useChatStore = create<ChatState>((set, get) => ({
-  messages: [],
+  // Initial state
+  currentMessages: [],
   storedMessages: [],
   apiMessages: [],
   allSessions: [],
   allMessages: [],
-  apiLoading: false,
-  isTransitioning: false,
+  isLoading: false,
+
+  // Actions
+  setCurrentMessages: (messages) => {
+    set({ currentMessages: messages });
+  },
 
   fetchApiMessages: async (sessionId) => {
     if (!sessionId) return;
     
-    set({ apiLoading: true });
+    set({ isLoading: true });
     try {
       const messages = await prismaStore.getMessages(sessionId);
       set({ apiMessages: messages });
     } catch (error) {
       console.error('Error fetching API messages:', error);
     } finally {
-      set({ apiLoading: false });
+      set({ isLoading: false });
     }
   },
 
   addMessage: async (sessionId, message) => {
-    await sessionStore.addMessage(sessionId, message);
-    const messages = sessionStore.getMessages(sessionId);
-    set({ storedMessages: messages });
+    try {
+      await sessionStore.addMessage(sessionId, message);
+      const messages = sessionStore.getMessages(sessionId);
+      set({ storedMessages: messages });
+    } catch (error) {
+      console.error('Error adding message:', error);
+    }
   },
 
-  loadUserSessions: (userId) => {
-    const sessions = sessionStore.getUserSessions(userId);
-    const allMessages = sessions.flatMap(session => 
-      (session.messages || []).map(message => ({
-        ...message,
-        sessionId: session.id,
-        sessionTitle: session.title || 'Untitled Session'
-      }))
-    ).sort((a, b) => 
-      new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
-    );
+  loadUserSessions: async (userId) => {
+    try {
+      set({ isLoading: true });
+      const sessions = await sessionStore.getUserSessions(userId);
+      
+      // Get all messages from all sessions
+      const allMessages = sessions.flatMap(session => 
+        (session.messages || []).map(message => ({
+          ...message,
+          sessionId: session.id,
+          sessionTitle: session.title || 'Untitled Session'
+        }))
+      ).sort((a, b) => 
+        new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
+      );
 
-    set({ 
-      allSessions: sessions,
-      allMessages
-    });
+      set({ 
+        allSessions: sessions,
+        allMessages,
+        isLoading: false
+      });
+    } catch (error) {
+      console.error('Error loading user sessions:', error);
+      set({ isLoading: false });
+    }
   },
 
-  setMessages: (messages) => set({ messages }),
-  clearMessages: () => set({ messages: [] })
+  clearMessages: () => set({ 
+    currentMessages: [],
+    storedMessages: [],
+    apiMessages: [] 
+  })
 }));

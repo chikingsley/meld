@@ -20,21 +20,46 @@ export function useChat(sessionId: string | null) {
   const { user } = useUser();
   const store = useChatStore();
   
-  // Load current session messages
+  // Load messages only once when sessionId changes
   useEffect(() => {
     if (sessionId) {
-      const messages = sessionStore.getMessages(sessionId);
-      store.setMessages(messages);
-      store.fetchApiMessages(sessionId);
+      // Use a flag to prevent multiple loads
+      let isSubscribed = true;
+
+      const loadMessages = async () => {
+        try {
+          const messages = sessionStore.getMessages(sessionId);
+          if (isSubscribed) {
+            store.setMessages(messages);
+          }
+          
+          // Fetch API messages after setting local messages
+          const apiMessages = await store.fetchApiMessages(sessionId);
+          if (isSubscribed && apiMessages) {
+            // Merge API messages with local messages
+            const combined = [...messages, ...apiMessages];
+            store.setMessages(combined);
+          }
+        } catch (error) {
+          console.error('Error loading messages:', error);
+        }
+      };
+
+      loadMessages();
+
+      // Cleanup function
+      return () => {
+        isSubscribed = false;
+      };
     }
-  }, [sessionId]);
+  }, [sessionId]); // Remove store from dependencies
 
   // Load all sessions for user
   useEffect(() => {
     if (user?.id) {
       store.loadUserSessions(user.id);
     }
-  }, [user?.id]);
+  }, [user?.id, store]);
 
   // Convert messages with IDs
   const messagesWithIds = useMemo(() =>
