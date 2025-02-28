@@ -4,6 +4,10 @@
   "framework": "vite",
   "rewrites": [
     {
+      "source": "/api/healthcheck",
+      "destination": "/api/healthcheck"
+    },
+    {
       "source": "/api/(.*)",
       "destination": "/api/$1"
     },
