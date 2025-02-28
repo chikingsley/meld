@@ -138,6 +138,18 @@ export const prismaStore = {
     }
   },
 
+  async getAllMessages(userId: string): Promise<Message[]> {
+    try {
+      const headers = await getHeaders();
+      const response = await fetch(`${API_BASE}/api/messages?userId=${userId}`, { headers });
+      if (!response.ok) throw new Error('Failed to fetch all messages');
+      return response.json();
+    } catch (error) {
+      console.error('[prismaStore] Failed to get all messages:', error);
+      throw error;
+    }
+  },
+
   async storeEmbedding(messageId: string, content: string): Promise<void> {
     try {
       if (!messageId || !content) {

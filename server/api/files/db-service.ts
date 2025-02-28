@@ -134,7 +134,26 @@ export async function processTranscript(req: Request) {
         if (!userId) {
             throw new Error("Unauthorized: Missing user ID in headers");
         }
-        console.log("Processing transcript for user:", userId);
+        
+        // Parse the URL to get query parameters
+        const url = new URL(req.url);
+        const noLimitParam = url.searchParams.get('noLimit');
+        const limitParam = url.searchParams.get('limit');
+        
+        // Determine if limits should be applied
+        const applyNoLimit = noLimitParam === 'true';
+        
+        // Set message limit - either from query param, default, or unlimited
+        let MESSAGE_LIMIT;
+        if (applyNoLimit) {
+            MESSAGE_LIMIT = Number.MAX_SAFE_INTEGER; // Effectively no limit
+        } else if (limitParam && !isNaN(Number(limitParam))) {
+            MESSAGE_LIMIT = Number(limitParam);
+        } else {
+            MESSAGE_LIMIT = 5; // Default limit
+        }
+        
+        console.log(`Processing transcript for user: ${userId} with ${applyNoLimit ? 'no limit' : `limit of ${MESSAGE_LIMIT}`}`);
 
         // Handle multipart form data
         const formData = await req.formData();
@@ -175,6 +194,7 @@ export async function processTranscript(req: Request) {
 
         let totalSessions = 0;
         let totalMessages = 0;
+        let totalAvailableMessages = 0;
 
         for (const session of normalizedSessions) {
             console.log("Processing session:", session.name || session.uuid || "Unnamed session");
@@ -182,7 +202,13 @@ export async function processTranscript(req: Request) {
             totalSessions++;
 
             const messages = session.chat_messages || session.messages || [];
-            for (const msg of messages) {
+            totalAvailableMessages += messages.length;
+            
+            // Only process up to MESSAGE_LIMIT messages per session
+            const messagesToProcess = messages.slice(0, MESSAGE_LIMIT);
+            console.log(`Processing ${messagesToProcess.length} out of ${messages.length} messages for this session`);
+            
+            for (const msg of messagesToProcess) {
                 await addMessage(createdSession.id, msg);
                 totalMessages++;
             }
@@ -190,9 +216,11 @@ export async function processTranscript(req: Request) {
 
         return Response.json({
             success: true,
-            message: `Successfully imported ${totalSessions} sessions with ${totalMessages} messages`,
+            message: `Successfully imported ${totalSessions} sessions with ${totalMessages} messages (limited to ${MESSAGE_LIMIT} messages per session, ${totalAvailableMessages} messages were available in total)`,
             sessionCount: totalSessions,
-            messageCount: totalMessages
+            messageCount: totalMessages,
+            totalAvailableMessages: totalAvailableMessages,
+            messageLimit: MESSAGE_LIMIT
         });
     } catch (error) {
         console.error("Error in processTranscript:", error);

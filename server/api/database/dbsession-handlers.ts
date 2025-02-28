@@ -130,6 +130,45 @@ export async function handleGetMessages(req: Request) {
   }
 }
 
+// Get all messages for a user (across all sessions)
+export async function handleGetAllMessages(req: Request) {
+  try {
+    const userId = req.headers.get('x-user-id');
+    if (!userId) {
+      return new Response('Unauthorized', { status: 401 });
+    }
+
+    const url = new URL(req.url);
+    const queryUserId = url.searchParams.get('userId');
+
+    // If userId query param is provided, verify it matches authenticated user
+    if (queryUserId && queryUserId !== userId) {
+      return new Response('Unauthorized', { status: 401 });
+    }
+
+    // Find all sessions for this user
+    const sessions = await prisma.session.findMany({
+      where: { userId },
+      select: { id: true }
+    });
+    
+    const sessionIds = sessions.map(s => s.id);
+
+    // Get all messages from these sessions
+    const messages = await prisma.message.findMany({
+      where: { 
+        sessionId: { in: sessionIds } 
+      },
+      orderBy: { timestamp: 'asc' }
+    });
+
+    return Response.json(messages);
+  } catch (error) {
+    console.error('Error in handleGetAllMessages:', error);
+    return new Response('Internal Server Error', { status: 500 });
+  }
+}
+
 // Add a message to a session
 // Update a session
 export async function handleUpdateSession(req: Request) {

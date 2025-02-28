@@ -12,7 +12,8 @@ import {
   handleDeleteSession,
   handleGetMessages,
   handleAddMessage,
-  handleUpdateSession
+  handleUpdateSession,
+  handleGetAllMessages
 } from './api/database/dbsession-handlers';
 
 import {
@@ -94,6 +95,10 @@ const server = Bun.serve({
     }
     if (url.pathname.match(/^\/api\/sessions\/[\w-]+\/messages$/) && req.method === 'POST') {
       return await withCors(await handleAddMessage(req));
+    }
+    // New endpoint for getting all messages for a user
+    if (url.pathname === '/api/messages' && req.method === 'GET') {
+      return await withCors(await handleGetAllMessages(req));
     }
 
     // Clerk webhook

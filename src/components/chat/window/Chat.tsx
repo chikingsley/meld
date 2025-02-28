@@ -52,27 +52,34 @@ export default function ClientComponent({ sessionId: urlSessionId, scrollToMessa
     try {
       console.log('Fetching API messages for session ID:', sessionId);
       setApiLoading(true);
-      console.log('Fetching messages from API for session:', sessionId);
-
+      
+      // Now using the async getMessages method that fetches from both localStorage and server
       const messages = await sessionStore.getMessages(sessionId);
-      console.log('Received API messages:', messages);
+      console.log('Received combined local and API messages:', messages);
 
-      // Map API messages to Message type
-      const typedMessages: Message[] = messages.map(apiMsg => ({
-        id: (apiMsg as any).id || `msg-${new Date().toISOString()}`,
-        sessionId: (apiMsg as any).sessionId || urlSessionId || '',
-        content: (apiMsg as any).content || '',
-        role: ((apiMsg as any).role === 'user' || (apiMsg as any).role === 'assistant' || (apiMsg as any).role === 'system')
-          ? (apiMsg as any).role
-          : 'user',
-        timestamp: typeof (apiMsg as any).timestamp === 'string'
-          ? (apiMsg as any).timestamp
-          : new Date((apiMsg as any).timestamp).toISOString(),
-        metadata: {
-          emotions: (apiMsg as any).metadata?.prosody,
-          prosody: (apiMsg as any).metadata?.prosody
-        }
-      }));
+      // Convert server messages to the expected format
+      const typedMessages: Message[] = messages.map(apiMsg => {
+        // Normalize server message format to match local format
+        return {
+          // For ID and session tracking
+          id: (apiMsg as any).id || `msg-${new Date().toISOString()}`,
+          sessionId: (apiMsg as any).sessionId || urlSessionId || '',
+          
+          // Important: Create nested message object expected by the UI
+          message: {
+            role: (apiMsg as any).role || 'user',
+            content: (apiMsg as any).content || ''
+          },
+          
+          // Normalize timestamp
+          timestamp: typeof (apiMsg as any).timestamp === 'string' 
+            ? (apiMsg as any).timestamp 
+            : new Date((apiMsg as any).timestamp).toISOString(),
+          
+          // Map emotions/prosody to expected structure
+          prosody: (apiMsg as any).metadata?.prosody || {}
+        };
+      });
 
       setApiMessages(typedMessages);
     } catch (error) {
@@ -80,7 +87,7 @@ export default function ClientComponent({ sessionId: urlSessionId, scrollToMessa
     } finally {
       setApiLoading(false);
     }
-  }, []);
+  }, [urlSessionId]);
 
   // Create a unique ID for each message based on content and role
   const createMessageId = (msg: Message | JSONMessage | ConnectionMessage, sessionId?: string) => {
@@ -131,16 +138,26 @@ export default function ClientComponent({ sessionId: urlSessionId, scrollToMessa
   // Load current session messages when urlSessionId changes
   useEffect(() => {
     if (urlSessionId) {
-      // Load local messages as before
-      const messages = sessionStore.getMessages(urlSessionId);
-      setStoredMessages(messages);
-
+      // Load messages using async method
+      const loadMessages = async () => {
+        try {
+          // Now using async getMessages method
+          const sessionMessages = await sessionStore.getMessages(urlSessionId);
+          setStoredMessages(sessionMessages);
+          
+          if (sessionMessages.length === 0) {
+            clearMessages();
+          }
+        } catch (error) {
+          console.error('Error loading messages:', error);
+          setStoredMessages([]);
+        }
+      };
+      
+      loadMessages();
+      
       // Also fetch from API
       fetchApiMessages(urlSessionId);
-
-      if (messages.length === 0) {
-        clearMessages();
-      }
     }
   }, [urlSessionId, clearMessages, fetchApiMessages]);
 
@@ -158,60 +175,70 @@ export default function ClientComponent({ sessionId: urlSessionId, scrollToMessa
         storedMessages.map(msg => createMessageId(msg))
       );
 
-      newMessages.forEach(msg => {
-        if ('message' in msg) {
-          const messageId = createMessageId(msg);
-          // Only save if we haven't seen this message before
-          if (!existingIds.has(messageId)) {
-            // Convert EmotionScores to Record<string, number>
-            const prosodyScores = msg.models?.prosody?.scores
-              ? Object.entries(msg.models.prosody.scores).reduce((acc, [key, value]) => {
-                acc[key] = value;
-                return acc;
-              }, {} as Record<string, number>)
-              : undefined;
-
-            const Message: Message = {
-              message: {
-                role: msg.message.role || 'user',
-                content: msg.message.content || ''
-              },
-              prosody: prosodyScores,
-              timestamp: msg.receivedAt?.toISOString() || new Date().toISOString(),
-            };
-
-            // Only pass urlSessionId if it's not null
-            if (urlSessionId) {
-              sessionStore.addMessage(urlSessionId, Message);
+      const saveNewMessages = async () => {
+        for (const msg of newMessages) {
+          if ('message' in msg) {
+            const messageId = createMessageId(msg);
+            // Only save if we haven't seen this message before
+            if (!existingIds.has(messageId)) {
+              // Convert EmotionScores to Record<string, number>
+              const prosodyScores = msg.models?.prosody?.scores
+                ? Object.entries(msg.models.prosody.scores).reduce((acc, [key, value]) => {
+                  acc[key] = value;
+                  return acc;
+                }, {} as Record<string, number>)
+                : undefined;
+  
+              const messageToSave: any = {
+                message: {
+                  role: msg.message.role || 'user',
+                  content: msg.message.content || ''
+                },
+                prosody: prosodyScores,
+                timestamp: msg.receivedAt?.toISOString() || new Date().toISOString(),
+              };
+  
+              // Only pass urlSessionId if it's not null
+              if (urlSessionId) {
+                await sessionStore.addMessage(urlSessionId, messageToSave);
+              }
             }
           }
         }
-      });
 
-      // Update stored messages to include the new ones
-      const allMessages = sessionStore.getMessages(urlSessionId);
-      setStoredMessages(allMessages);
-
-      // Also refresh all sessions when messages change
-      if (user?.id) {
-        const sessions = sessionStore.getUserSessions(user.id);
-        setAllSessions(sessions);
-
-        // Update all stored messages
-        const allMessages = sessions.flatMap(session =>
-          (session.messages || []).map(message => ({
-            ...message,
-            sessionId: session.id,
-            sessionTitle: session.title || 'Untitled Session'
-          }))
-        );
-
-        const sortedMessages = allMessages.sort((a, b) =>
-          new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
-        );
-
-        setAllMessages(sortedMessages);
-      }
+        // Update stored messages to include the new ones
+        try {
+          const allMessages = await sessionStore.getMessages(urlSessionId);
+          setStoredMessages(allMessages);
+          
+          // Also refresh all sessions when messages change
+          if (user?.id) {
+            await sessionStore.fetchServerSessions(user.id);
+            const sessions = sessionStore.getUserSessions(user.id);
+            setAllSessions(sessions);
+            
+            // Update all stored messages
+            const allUserMessages = await sessionStore.getAllMessages(user.id);
+            const messagesWithSessionInfo = allUserMessages.map(message => {
+              const session = sessions.find(s => s.id === message.sessionId);
+              return {
+                ...message,
+                sessionTitle: session?.title || 'Untitled Session'
+              };
+            });
+            
+            const sortedMessages = messagesWithSessionInfo.sort((a, b) =>
+              new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
+            );
+            
+            setAllMessages(sortedMessages);
+          }
+        } catch (error) {
+          console.error('Error updating stored messages:', error);
+        }
+      };
+      
+      saveNewMessages();
     }
   }, [messagesLength, urlSessionId, status.value, user?.id]);
 
@@ -254,6 +281,28 @@ export default function ClientComponent({ sessionId: urlSessionId, scrollToMessa
         messageMap.set(msg.id, msg);
       }
     });
+    
+    // Add API messages for the current session - with proper format conversion
+    apiMessages.forEach(msg => {
+      // Use either the existing ID or create one
+      const apiMsgId = msg.id || createMessageId(msg, urlSessionId || undefined);
+      
+      if (apiMsgId) {
+        // Make sure we're creating a message in the expected format for the UI
+        messageMap.set(apiMsgId, {
+          id: apiMsgId,
+          type: msg.message.role === 'user' ? 'user_message' : 'assistant_message',
+          // The message object is already in the correct nested format
+          message: msg.message,
+          models: {
+            prosody: { scores: msg.prosody }
+          },
+          timestamp: msg.timestamp,
+          receivedAt: new Date(msg.timestamp),
+          sessionId: urlSessionId
+        });
+      }
+    });
 
     // Then add current session's messages which will override if needed
     messagesWithIds.forEach(msg => {
@@ -262,8 +311,11 @@ export default function ClientComponent({ sessionId: urlSessionId, scrollToMessa
       }
     });
 
+    // For debugging: output the combined messages
+    console.log('Combined messages for display:', Array.from(messageMap.values()));
+
     return Array.from(messageMap.values());
-  }, [convertedAllMessages, messagesWithIds]);
+  }, [convertedAllMessages, messagesWithIds, apiMessages, urlSessionId]);
 
   // Add date markers and other markers
   const messagesWithMarkers = useMemo(() => {

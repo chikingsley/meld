@@ -1,5 +1,6 @@
 // src/lib/session-store.ts
 import { useCallback } from 'react';
+import { prismaStore } from './prisma-store';
 import { useSessionStore } from '@/stores/useSessionStore';
 import { useUserStore } from '@/stores/useUserStore';
 import { Message } from '@/types/messages';
@@ -14,8 +15,6 @@ export interface StoredSession {
 }
 
 const SESSIONS_KEY = 'meld_sessions';
-
-import { prismaStore } from './prisma-store';
 
 export const sessionStore = {
   getSessions(): StoredSession[] {
@@ -65,7 +64,38 @@ export const sessionStore = {
   },
 
   getUserSessions(userId: string): StoredSession[] {
-    return this.getSessions().filter(s => s.userId === userId);
+    // Get local sessions
+    const localSessions = this.getSessions().filter(s => s.userId === userId);
+    
+    // Also try to fetch from server asynchronously, but don't block
+    this.fetchServerSessions(userId);
+    
+    return localSessions;
+  },
+
+  async fetchServerSessions(userId: string) {
+    try {
+      console.log('🔧 Fetching sessions from server for user:', userId);
+      const serverSessions = await prismaStore.getUserSessions(userId);
+      
+      // Merge with local sessions
+      const localSessions = this.getSessions();
+      const mergedSessions = [...localSessions];
+      
+      // Add server sessions that don't exist locally
+      for (const serverSession of serverSessions) {
+        const existingIndex = mergedSessions.findIndex(s => s.id === serverSession.id);
+        if (existingIndex === -1) {
+          mergedSessions.push(serverSession);
+        }
+      }
+      
+      // Update local storage
+      localStorage.setItem(SESSIONS_KEY, JSON.stringify(mergedSessions));
+      console.log('🔧 Updated local sessions with server data');
+    } catch (error) {
+      console.error('Failed to fetch sessions from server:', error);
+    }
   },
 
   async addMessage(sessionId: string, message: Message) {
@@ -109,20 +139,86 @@ export const sessionStore = {
     }
   },
 
-  getMessages(sessionId: string): Message[] {
+  async getMessages(sessionId: string): Promise<Message[]> {
+    // Get local messages first
     const sessions = this.getSessions();
     const session = sessions.find(s => s.id === sessionId);
-    return session?.messages || [];
+    const localMessages = session?.messages || [];
+    
+    try {
+      // Also fetch from server
+      console.log('🔧 Fetching messages from server for session:', sessionId);
+      const serverMessages = await prismaStore.getMessages(sessionId);
+      console.log('🔧 Got server messages:', serverMessages);
+      
+      // Combine messages
+      const allMessages = [...serverMessages];
+      
+      // Add local messages that aren't already included
+      localMessages.forEach(localMsg => {
+        const isInServer = serverMessages.some(serverMsg => {
+          // Match based on content and role if available
+          if ('content' in localMsg && 'role' in localMsg && 
+              'content' in serverMsg && 'role' in serverMsg) {
+            return localMsg.content === serverMsg.content && 
+                   localMsg.role === serverMsg.role;
+          }
+          return false;
+        });
+        
+        if (!isInServer) {
+          allMessages.push(localMsg);
+        }
+      });
+      
+      return allMessages;
+    } catch (error) {
+      console.error('Failed to fetch messages from server:', error);
+      return localMessages; // Fallback to local messages
+    }
   },
 
-  getAllMessages(userId: string): Message[] {
-    const sessions = this.getUserSessions(userId);
-    return sessions.flatMap(session => 
+  async getAllMessages(userId: string): Promise<Message[]> {
+    // Get local messages
+    const sessions = this.getSessions().filter(s => s.userId === userId);
+    const localMessages = sessions.flatMap(session => 
       (session.messages || []).map(message => ({
         ...message,
         sessionId: session.id
       }))
     );
+    
+    try {
+      // Fetch from server
+      console.log('🔧 Fetching all messages from server for user:', userId);
+      const serverMessages = await prismaStore.getAllMessages(userId);
+      
+      // Combine messages
+      const allMessages = [...serverMessages];
+      
+      // Add local messages that aren't already included
+      localMessages.forEach(localMsg => {
+        const isInServer = serverMessages.some(serverMsg => {
+          // Match based on content, role, and sessionId if available
+          if ('content' in localMsg && 'role' in localMsg && 'sessionId' in localMsg &&
+              'content' in serverMsg && 'role' in serverMsg && 'sessionId' in serverMsg) {
+            return localMsg.content === serverMsg.content && 
+                   localMsg.role === serverMsg.role &&
+                   localMsg.sessionId === serverMsg.sessionId;
+          }
+          return false;
+        });
+        
+        if (!isInServer) {
+          allMessages.push(localMsg);
+        }
+      });
+      
+      return allMessages;
+    } catch (error) {
+      console.error('Failed to fetch all messages from server:', error);
+      return localMessages; // Fallback to local messages
+    }
   }
 };
 
