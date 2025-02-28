@@ -27,6 +27,14 @@ export default defineConfig({
   build: {
     target: 'esnext',
     outDir: 'dist',
+    rollupOptions: {
+      external: [
+        // Exclude problematic CSS imports from node_modules
+        'filepond/dist/filepond.min.css'
+      ]
+    },
+    // Increase chunk size limit to avoid warnings
+    chunkSizeWarningLimit: 2000
   },
   plugins: [
     react({ 

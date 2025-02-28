@@ -1,0 +1,23 @@
+/* FilePond styles */
+.filepond--root {
+  margin-bottom: 1em;
+}
+
+.filepond--panel-root {
+  background-color: #f1f5f9;
+  border-radius: 0.5rem;
+}
+
+.filepond--drop-label {
+  color: #64748b;
+  font-size: 14px;
+}
+
+.filepond--label-action {
+  text-decoration-color: #3b82f6;
+  color: #3b82f6;
+}
+
+.filepond--credits {
+  display: none;
+} 

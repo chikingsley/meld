@@ -19,8 +19,8 @@ import { useState, useRef } from "react";
 import { FilePond } from "react-filepond";
 import type { FilePondFile } from "filepond";
 
-// Import FilePond styles
-import "filepond/dist/filepond.min.css";
+// Import FilePond styles - use local styles instead of node_modules
+import "@/styles/filepond.css";
 
 // Define type for import status
 interface ImportStatus {
