@@ -1,11 +1,16 @@
 {
   "version": 2,
+  "functions": {
+    "api/**": {
+      "runtime": "@vercel/node@latest"
+    }
+  },
   "buildCommand": "npm run vercel-build",
   "outputDirectory": "dist",
   "framework": "vite",
   "rewrites": [
     {
-      "source": "/api/:path*",
+      "source": "/api/(.*)",
       "destination": "/.output/server/index.mjs"
     },
     {
