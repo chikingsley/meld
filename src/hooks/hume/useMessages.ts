@@ -7,14 +7,14 @@ import type {
   JSONMessage,
   UserTranscriptMessage,
 } from '../../types/hume-messages';
-// import { keepLastN } from '@/lib/hume/keepLastN';
+import { keepLastN } from '@/lib/hume/keepLastN';
 
 export const useMessages = ({
   sendMessageToParent,
-  // messageHistoryLimit,
+  messageHistoryLimit,
 }: {
   sendMessageToParent?: (message: JSONMessage) => void;
-  // messageHistoryLimit: number;
+  messageHistoryLimit: number;
 }) => {
   const [voiceMessageMap, setVoiceMessageMap] = useState<
     Record<string, AssistantTranscriptMessage>
@@ -79,11 +79,8 @@ export const useMessages = ({
           if (message.interim === false) {
             setLastUserMessage(message);
             setMessages((prev) => {
-              return [...prev, message];
+              return keepLastN(messageHistoryLimit, prev.concat([message]));
             });
-            // setMessages((prev) => {
-            //   return keepLastN(messageHistoryLimit, prev.concat([message]));
-            // });
           }
 
           break;
@@ -95,29 +92,22 @@ export const useMessages = ({
         case 'assistant_end':
           sendMessageToParent?.(message);
           setMessages((prev) => {
-            return [...prev, message];
+            return keepLastN(messageHistoryLimit, prev.concat([message]));
           });
-          // setMessages((prev) => {
-          //   return keepLastN(messageHistoryLimit, prev.concat([message]));
-          // });
           break;
         case 'chat_metadata':
           console.log('Setting chat metadata:', message);
           sendMessageToParent?.(message);
           setMessages((prev) => {
-            return [...prev, message];
+            return keepLastN(messageHistoryLimit, prev.concat([message]));
           });
-          // setMessages((prev) => {
-          //   return keepLastN(messageHistoryLimit, prev.concat([message]));
-          // });
           setChatMetadata(message);
           break;
         default:
           break;
       }
     },
-    // [messageHistoryLimit, sendMessageToParent],
-    [sendMessageToParent],
+    [messageHistoryLimit, sendMessageToParent, setMessages],
   );
 
   const onPlayAudio = useCallback(
@@ -144,23 +134,22 @@ export const useMessages = ({
         });
       }
     },
-    // [voiceMessageMap, sendMessageToParent, messageHistoryLimit],
-    [voiceMessageMap, sendMessageToParent],
+    [voiceMessageMap, sendMessageToParent, messageHistoryLimit],
   );
 
-  // const clearMessages = useCallback(() => {
-  //   setMessages([]);
-  //   setLastVoiceMessage(null);
-  //   setLastUserMessage(null);
-  //   setVoiceMessageMap({});
-  // }, []);
+  const clearMessages = useCallback(() => {
+    setMessages([]);
+    setLastVoiceMessage(null);
+    setLastUserMessage(null);
+    setVoiceMessageMap({});
+  }, []);
 
   return {
     createConnectMessage,
     createDisconnectMessage,
     onMessage,
     onPlayAudio,
-    // clearMessages,
+    clearMessages,
     lastVoiceMessage,
     lastUserMessage,
   };

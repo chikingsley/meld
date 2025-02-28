@@ -20,10 +20,9 @@ interface ClientComponentProps {
 
 export default function ClientComponent({ sessionId: urlSessionId, scrollToMessageId }: ClientComponentProps) {
   const { user } = useUser();
-
+  const processedMessageIds = useRef(new Set<string>());
   const messageRefs = useRef<{ [key: string]: HTMLDivElement }>({});
-
-  const { status } = useVoice();
+  const { clearMessages, status } = useVoice();
   const messages = useSessionStore(state => state.messages);
   const messagesLength = useSessionStore(state => state.messages.length);
   const [storedMessages, setStoredMessages] = useState<Message[]>([]);
@@ -137,6 +136,9 @@ export default function ClientComponent({ sessionId: urlSessionId, scrollToMessa
         try {
           // Now using async getMessages method
           const sessionMessages = await sessionStore.getMessages(urlSessionId);
+          if (sessionMessages.length === 0) {
+            clearMessages();
+          }
           setStoredMessages(sessionMessages);
 
         } catch (error) {
@@ -167,12 +169,15 @@ export default function ClientComponent({ sessionId: urlSessionId, scrollToMessa
       );
 
       const saveNewMessages = async () => {
+        // Collect messages to save
+        const messagesToSave = [];
+        
         for (const msg of newMessages) {
           if ('message' in msg) {
             const messageId = createMessageId(msg);
+            
             // Only save if we haven't seen this message before
-            if (!existingIds.has(messageId)) {
-              // Convert EmotionScores to Record<string, number>
+            if (!existingIds.has(messageId) && !processedMessageIds.current.has(messageId)) {
               const prosodyScores = msg.models?.prosody?.scores
                 ? Object.entries(msg.models.prosody.scores).reduce((acc, [key, value]) => {
                   acc[key] = value;
@@ -188,42 +193,26 @@ export default function ClientComponent({ sessionId: urlSessionId, scrollToMessa
                 prosody: prosodyScores,
                 timestamp: msg.receivedAt?.toISOString() || new Date().toISOString(),
               };
-
-              // Only pass urlSessionId if it's not null
-              if (urlSessionId) {
-                await sessionStore.addMessage(urlSessionId, messageToSave);
-              }
+              
+              messagesToSave.push(messageToSave);
+              processedMessageIds.current.add(messageId);
             }
           }
         }
-
-        // Update stored messages to include the new ones
+        
+        // Save messages sequentially but more efficiently
+        for (const message of messagesToSave) {
+          try {
+            await sessionStore.addMessage(urlSessionId, message);
+          } catch (error) {
+            console.error('Error saving message:', error);
+          }
+        }
+        
+        // Then update stored messages
         try {
           const allMessages = await sessionStore.getMessages(urlSessionId);
           setStoredMessages(allMessages);
-
-          // Also refresh all sessions when messages change
-          if (user?.id) {
-            await sessionStore.fetchServerSessions(user.id);
-            const sessions = sessionStore.getUserSessions(user.id);
-            setAllSessions(sessions);
-
-            // Update all stored messages
-            const allUserMessages = await sessionStore.getAllMessages(user.id);
-            const messagesWithSessionInfo = allUserMessages.map(message => {
-              const session = sessions.find(s => s.id === message.sessionId);
-              return {
-                ...message,
-                sessionTitle: session?.title || 'Untitled Session'
-              };
-            });
-
-            const sortedMessages = messagesWithSessionInfo.sort((a, b) =>
-              new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
-            );
-
-            setAllMessages(sortedMessages);
-          }
         } catch (error) {
           console.error('Error updating stored messages:', error);
         }
@@ -295,89 +284,71 @@ export default function ClientComponent({ sessionId: urlSessionId, scrollToMessa
     [messages, urlSessionId]);
 
   const combinedMessages = useMemo(() => {
-    // Log input dependencies
-    console.log('useMemo combinedMessages inputs:', {
-      allMessagesCount: convertedAllMessages.length,
-      messagesWithIdsCount: messagesWithIds.length,
-      apiMessagesCount: apiMessages.length,
-      urlSessionId
-    });
-
-    // Log samples of input data
-    console.log('Sample all messages:', convertedAllMessages.slice(0, 2));
-    console.log('Sample messagesWithIds:', messagesWithIds.slice(0, 2));
-    console.log('Sample apiMessages:', apiMessages.slice(0, 2));
-
+    // Maximum number of messages to include in the combined view
+    const MAX_MESSAGES = 50;
+    
+    // Create a stable map of messages that won't change as often
     const messageMap = new Map();
 
-    // Log intermediate steps
-    convertedAllMessages.forEach(msg => {
-      if (msg.id) {
-        messageMap.set(msg.id, msg);
-      }
-    });
-
-    console.log('After adding convertedAllMessages, map size:', messageMap.size);
-
-    // Add API messages for the current session
-    apiMessages.forEach(msg => {
-      const apiMsgId = msg.id || createMessageId(msg, urlSessionId || undefined);
-
-      // Log problematic messages
-      if (msg.message?.role === 'system' || !msg.message?.content) {
-        console.log('Potential problematic message:', msg);
-      }
-
-      if (apiMsgId) {
-        // Log before transformation
-        console.log('API message before transformation:', msg);
-
-        // Your transformation logic here
-        const transformedMsg = {
-          id: apiMsgId,
-          type: msg.message?.role === 'user' ? 'user_message' : 'assistant_message',
-          message: msg.message,
-          models: {
-            prosody: { scores: msg.prosody }
-          },
-          timestamp: msg.timestamp,
-          receivedAt: new Date(msg.timestamp),
-          sessionId: urlSessionId
-        };
-
-        // Log after transformation
-        console.log('API message after transformation:', transformedMsg);
-
-        messageMap.set(apiMsgId, transformedMsg);
-      }
-    });
-    console.log('After adding apiMessages, map size:', messageMap.size);
-
-    // Then add current session's messages
+    // Add messages with priority (most recent first)
+    // 1. Current session messages - most important
     messagesWithIds.forEach(msg => {
       if (msg.id) {
         messageMap.set(msg.id, msg);
       }
     });
-    console.log('After adding messagesWithIds, map size:', messageMap.size);
 
-    // Get the final result
-    const result = Array.from(messageMap.values());
-
-    // Log the final output
-    console.log('Final combined messages count:', result.length);
-    console.log('Sample final combined messages:', result.slice(0, 2));
-
-    // Include message history
-    messageHistory.forEach(msg => {
-      const msgId = msg.id || createMessageId(msg);
-      if (msgId) {
-        messageMap.set(msgId, msg);
+    // 2. API messages for the current session
+    apiMessages.forEach(msg => {
+      const apiMsgId = msg.id || createMessageId(msg, urlSessionId || undefined);
+      if (apiMsgId && !messageMap.has(apiMsgId)) {
+        // Simplify the transformation to avoid complex property access
+        const transformedMsg = {
+          id: apiMsgId,
+          type: msg.message?.role === 'user' ? 'user_message' : 'assistant_message',
+          message: msg.message || { role: 'user', content: '' },
+          models: {
+            prosody: { scores: msg.prosody || {} }
+          },
+          timestamp: msg.timestamp || new Date().toISOString(),
+          receivedAt: new Date(msg.timestamp || new Date()),
+          sessionId: urlSessionId
+        };
+        messageMap.set(apiMsgId, transformedMsg);
       }
     });
 
-    return result;
-  }, [convertedAllMessages, messagesWithIds, apiMessages, urlSessionId, messageHistory]);
+    // 3. Message history - add any that aren't already in the map
+    if (messageHistory && Array.isArray(messageHistory)) {
+      messageHistory.forEach(msg => {
+        if (msg) {
+          // Use a safer approach to get ID
+          const msgId = (msg.id || createMessageId(msg as any)) as string;
+          if (msgId && !messageMap.has(msgId)) {
+            messageMap.set(msgId, msg);
+          }
+        }
+      });
+    }
+    
+    // 4. Finally, add remaining converted messages
+    convertedAllMessages.forEach(msg => {
+      if (msg?.id && !messageMap.has(msg.id)) {
+        messageMap.set(msg.id, msg);
+      }
+    });
+
+    // Get sorted array of messages (newest first)
+    const sortedMessages = Array.from(messageMap.values())
+      .sort((a: any, b: any) => {
+        const timeA = a.timestamp ? new Date(a.timestamp).getTime() : 0;
+        const timeB = b.timestamp ? new Date(b.timestamp).getTime() : 0;
+        return timeB - timeA; // Newest first
+      });
+    
+    // Return only the most recent MAX_MESSAGES
+    return sortedMessages.slice(0, MAX_MESSAGES);
+  }, [messagesWithIds, apiMessages, urlSessionId, messageHistory]);
 
   // Add date markers and other markers
   const messagesWithMarkers = useMemo(() => {

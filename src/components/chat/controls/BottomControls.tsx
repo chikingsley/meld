@@ -28,7 +28,7 @@ const BottomControls = React.memo(({ sessionId }: BottomControlsProps) => {
 
   // Use text mode handler from hook
   const { sendMessage: handleTextSubmit } = useText({
-    // messageHistoryLimit: 100
+    messageHistoryLimit: 100
   });
 
   // Reset post-call state when changing sessions
