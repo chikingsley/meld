@@ -38,6 +38,13 @@ export default function ClientComponent({ sessionId: urlSessionId, scrollToMessa
   const [allSessions, setAllSessions] = useState<any[]>([]);
   const [allMessages, setAllMessages] = useState<any[]>([]);
 
+  // Helper function to set message refs with proper typing
+  const setMessageRef = (id: string, el: HTMLDivElement | null) => {
+    if (id && el) {
+      messageRefs.current[id] = el;
+    }
+  };
+
   const fetchApiMessages = useCallback(async (sessionId: string) => {
     console.log('Fetching API messages triggered');
     if (!sessionId) return;
@@ -212,7 +219,7 @@ export default function ClientComponent({ sessionId: urlSessionId, scrollToMessa
   const convertedAllMessages = useMemo(() =>
     allMessages.map(msg => ({
       id: createMessageId(msg, msg.sessionId),
-      type: msg.message && 'role' in msg.message ? 
+      type: msg.message && 'role' in msg.message ?
         msg.message.role === 'user' ? 'user_message' : 'assistant_message'
         : 'unknown',
       message: msg.message || { role: 'system', content: '' },
@@ -236,47 +243,6 @@ export default function ClientComponent({ sessionId: urlSessionId, scrollToMessa
       sessionId: urlSessionId
     })),
     [messages, urlSessionId]);
-
-  // OLD VERSION - Combine and deduplicate all messages
-  // const combinedMessages = useMemo(() => {
-  //   const messageMap = new Map();
-
-  //   // First add API messages if available (highest priority)
-  //   const convertedApiMessages = apiMessages.map(msg => ({
-  //     id: createMessageId(msg, urlSessionId || undefined),
-  //     type: msg.message.role === 'user' ? 'user_message' : 'assistant_message',
-  //     message: msg.message,
-  //     models: {
-  //       prosody: { scores: msg.prosody },
-  //       expressions: { scores: msg.expressions },
-  //       labels: { scores: msg.labels }
-  //     },
-  //     timestamp: msg.timestamp,
-  //     sessionId: urlSessionId
-  //   }));
-
-  //   convertedApiMessages.forEach(msg => {
-  //     if (msg.id) {
-  //       messageMap.set(msg.id, msg);
-  //     }
-  //   });
-
-  //   // Then add messages from all sessions
-  //   convertedAllMessages.forEach(msg => {
-  //     if (msg.id) {
-  //       messageMap.set(msg.id, msg);
-  //     }
-  //   });
-
-  //   // Then add current session's messages, which will override if there are duplicates
-  //   messagesWithIds.forEach(msg => {
-  //     if (msg.id) {
-  //       messageMap.set(msg.id, msg);
-  //     }
-  //   });
-
-  //   return Array.from(messageMap.values());
-  // }, [convertedAllMessages, messagesWithIds]);
 
   // NEW VERSION - Combine all messages but keep all duplicates
   const combinedMessages = useMemo(() => {
@@ -475,8 +441,7 @@ export default function ClientComponent({ sessionId: urlSessionId, scrollToMessa
       <Messages
         ref={ref}
         messages={displayMessages}
-      // Temporarily comment this out if you can't modify Messages component yet
-      // setMessageRef={setMessageRef}
+        setMessageRef={setMessageRef}
       />
       <BottomControls
         sessionId={urlSessionId || undefined} // Convert null to undefined

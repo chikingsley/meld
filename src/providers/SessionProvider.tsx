@@ -37,9 +37,9 @@ const SessionContext = createContext<SessionContextState>({
   error: null,
   isInitialized: false,
   isVoiceMode: true,
-  setVoiceMode: () => {},
+  setVoiceMode: () => { },
   createSession: () => Promise.resolve(null),
-  selectSession: () => {},
+  selectSession: () => { },
   deleteSession: () => Promise.resolve(),
   updateSession: () => Promise.resolve(),
 });
@@ -56,7 +56,7 @@ export const SessionProvider: React.FC<{ children: ReactNode }> = ({
   const [isInitialized, setIsInitialized] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
-  
+
   // Refs for operation locks
   const initializationLock = useRef<boolean>(false);
   const sessionCreationLock = useRef<boolean>(false);
@@ -157,15 +157,23 @@ export const SessionProvider: React.FC<{ children: ReactNode }> = ({
     try {
       const newSession = await sessionStore.addSession();
       const formattedSession = formatSession(newSession);
-      
+
       // Use functional updates to ensure state consistency
       setSessions(prev => [formattedSession, ...prev]);
       setCurrentSessionId(newSession.id);
-      
-      // Only navigate after state is updated
-      await new Promise(resolve => setTimeout(resolve, 0));
-      navigateToSession(newSession.id);
-      
+
+      // Instead of using navigate, update the URL using history API
+      // This prevents the React Router re-render cycle
+      if (window.history) {
+        const newUrl = `/session/${newSession.id}`;
+
+        // Only update if we're not already at this URL
+        if (location.pathname !== newUrl) {
+          console.log('[createSession] Updating URL without navigation', newUrl);
+          window.history.replaceState(null, '', newUrl);
+        }
+      }
+
       return newSession.id;
     } catch (err) {
       const sessionError = new SessionError(
@@ -179,7 +187,7 @@ export const SessionProvider: React.FC<{ children: ReactNode }> = ({
       sessionCreationLock.current = false;
       setLoading(false);
     }
-  }, [user?.id, userLoaded, navigateToSession]);
+  }, [user?.id, userLoaded, location.pathname]);
 
   // Delete session with locking
   const deleteSession = useCallback(async (sessionId: string) => {
@@ -383,13 +391,17 @@ export const SessionProvider: React.FC<{ children: ReactNode }> = ({
   useEffect(() => {
     if (currentSessionId) {
       const basePath = "/session";
-      // Only redirect if we're already in a session-related route
+      // Only update URL if we're already in a session-related route and the URL doesn't match
       if (location.pathname.startsWith(basePath) && location.pathname !== `${basePath}/${currentSessionId}`) {
-        console.log('[sessioncontext] ROUTING NAVIGATE');
-        navigate(`${basePath}/${currentSessionId}`);
+        console.log('[sessioncontext] Updating URL');
+
+        // Use history.replaceState instead of navigate to avoid re-renders
+        if (window.history) {
+          window.history.replaceState(null, '', `${basePath}/${currentSessionId}`);
+        }
       }
     }
-  }, [currentSessionId, navigate, location.pathname]);
+  }, [currentSessionId, location.pathname]);
 
   const contextValue: SessionContextState = useMemo(() => ({
     sessions: memoizedSessions,
