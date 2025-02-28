@@ -4,6 +4,9 @@ import { defineNitroConfig } from 'nitropack'
 export default defineNitroConfig({
   srcDir: "server",
 
+  // Explicitly set the preset to vercel
+  preset: 'vercel',
+
   routeRules: {
     // Define route rules for any API endpoints if needed
     '/api/**': {

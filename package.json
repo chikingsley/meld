@@ -16,7 +16,7 @@
     "nitro:dev": "bunx --bun nitro dev",
     "nitro:build": "bunx --bun nitro build",
     "nitro:preview": "node .output/server/index.mjs",
-    "vercel-build": "bunx --bun nitro build && bunx --bun vite build"
+    "vercel-build": "npx nitro build && npx vite build"
   },
   "dependencies": {
     "@clerk/backend": "^1.24.3",
