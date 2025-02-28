@@ -1,0 +1,5 @@
+{
+  "test": true,
+  "static": true,
+  "message": "This is a static JSON file that should be served directly"
+} 

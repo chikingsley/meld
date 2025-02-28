@@ -1,8 +1,13 @@
 {
-  "buildCommand": "bunx --bun vite build",
+  "version": 2,
+  "buildCommand": "bunx --bun nitro build && bunx --bun vite build",
   "outputDirectory": "dist",
   "framework": "vite",
   "rewrites": [
+    {
+      "source": "/api/ping",
+      "destination": "/api/ping"
+    },
     {
       "source": "/api/healthcheck",
       "destination": "/api/healthcheck"
@@ -46,6 +51,18 @@
           "value": "public, max-age=31536000, immutable"
         }
       ]
+    }
+  ],
+  "trailingSlash": false,
+  "cleanUrls": true,
+  "builds": [
+    {
+      "src": "dist/**",
+      "use": "@vercel/static"
+    },
+    {
+      "src": ".output/server/index.mjs",
+      "use": "@vercel/node"
     }
   ]
 }
