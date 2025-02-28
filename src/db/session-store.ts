@@ -77,10 +77,13 @@ export const sessionStore = {
     try {
       console.log('🔧 Fetching sessions from server for user:', userId);
       const serverSessions = await prismaStore.getUserSessions(userId);
+      console.log('🔧 Got server sessions:', serverSessions);
       
       // Merge with local sessions
       const localSessions = this.getSessions();
+      console.log('🔧 Got local sessions:', localSessions);
       const mergedSessions = [...localSessions];
+      console.log('🔧 Merged sessions:', mergedSessions);
       
       // Add server sessions that don't exist locally
       for (const serverSession of serverSessions) {
