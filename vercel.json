@@ -2,24 +2,16 @@
   "version": 2,
   "buildCommand": "bunx --bun nitro build && bunx --bun vite build",
   "outputDirectory": "dist",
-  "framework": "vite",
-  "rewrites": [
-    {
-      "source": "/api/ping",
-      "destination": "/api/ping"
-    },
-    {
-      "source": "/api/healthcheck",
-      "destination": "/api/healthcheck"
-    },
-    {
-      "source": "/api/(.*)",
-      "destination": "/api/$1"
-    },
-    {
-      "source": "/((?!api/.*).*)",
-      "destination": "/index.html"
+  "functions": {
+    "api/[...path].js": {
+      "memory": 1024,
+      "maxDuration": 10
     }
+  },
+  "routes": [
+    { "src": "/api/(.*)", "dest": "/api/$1" },
+    { "handle": "filesystem" },
+    { "src": "/(.*)", "dest": "/index.html" }
   ],
   "headers": [
     {
@@ -51,18 +43,6 @@
           "value": "public, max-age=31536000, immutable"
         }
       ]
-    }
-  ],
-  "trailingSlash": false,
-  "cleanUrls": true,
-  "builds": [
-    {
-      "src": "dist/**",
-      "use": "@vercel/static"
-    },
-    {
-      "src": ".output/server/index.mjs",
-      "use": "@vercel/node"
     }
   ]
 }
