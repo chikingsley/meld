@@ -3,31 +3,38 @@
   "buildCommand": "bun run vercel-build",
   "outputDirectory": "dist",
   "framework": "vite",
-  "rewrites": [
-    {
-      "source": "/api/:path*",
-      "destination": "/api/:path*"
-    },
-    {
-      "source": "/api/:path*/",
-      "destination": "/api/:path*/"
-    },
-    {
-      "source": "/(.*)",
-      "destination": "/index.html"
-    }
-  ],
-  "routes": [
-    {
-      "src": "/api/(.*)",
-      "dest": "/.output/server/index.mjs"
-    }
-  ],
   "functions": {
     "api/**/*": {
       "runtime": "nodejs18.x"
     }
   },
+  "routes": [
+    { 
+      "src": "/api/webhooks/clerk", 
+      "dest": "api/webhooks/clerk.js" 
+    },
+    { 
+      "src": "/api/ping", 
+      "dest": "api/ping.js" 
+    },
+    { 
+      "src": "/api/healthcheck", 
+      "dest": "api/healthcheck.js" 
+    },
+    { 
+      "src": "/api/(.*)", 
+      "dest": "/.output/server/index.mjs" 
+    },
+    { 
+      "src": "/(assets|images)/.*", 
+      "headers": { "cache-control": "public, max-age=31536000, immutable" },
+      "continue": true 
+    },
+    { 
+      "src": "/(.*)", 
+      "dest": "/index.html" 
+    }
+  ],
   "headers": [
     {
       "source": "/(.*)",
