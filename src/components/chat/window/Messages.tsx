@@ -2,7 +2,7 @@
 import { cn } from "@/utils/classNames";
 import Expressions from "./Expressions";
 import { motion } from "framer-motion";
-import { ComponentRef, forwardRef, useEffect, useRef, useState } from "react";
+import { ComponentRef, forwardRef, useEffect, useRef, useState, useCallback } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
 
 interface MessagesProps {
@@ -20,6 +20,9 @@ const Messages = forwardRef<
   // Keep track of previous message count to detect new messages
   const prevMessagesLengthRef = useRef(messages.length);
   
+  // Track if we're measuring new messages
+  const isMeasuringRef = useRef(false);
+  
   // State to control auto-scrolling behavior
   const [shouldAutoScroll, setShouldAutoScroll] = useState(true);
   const isAutoScrollingRef = useRef(false);
@@ -28,7 +31,7 @@ const Messages = forwardRef<
   const bottomRef = useRef<HTMLDivElement | null>(null);
 
   // Initial approximate sizes - these will be updated once messages are measured
-  const getInitialSize = (index: number): number => {
+  const getInitialSize = useCallback((index: number): number => {
     const msg = messages[index];
     if (!msg) return 100;
     
@@ -37,24 +40,20 @@ const Messages = forwardRef<
     
     // A minimal initial guess - the size will be updated once measured
     return 150;
-  };
+  }, [messages]);
 
   // Setup virtualizer with dynamic sizing capability
   const virtualizer = useVirtualizer({
     count: messages.length,
     getScrollElement: () => parentRef.current,
     estimateSize: getInitialSize,
-    overscan: 10,
+    overscan: 15, // Increased to ensure more items are rendered
     // Add spacing between items that matches the original gap-4 styling
     gap: 16,
     // Configure the measure function to get sizes from the DOM
     measureElement: (el) => {
       // If element doesn't exist, return a default size
       if (!el) return 150;
-      
-      // Try to get the index from the data attribute
-      const indexAttr = el.getAttribute('data-index');
-      const index = indexAttr ? Number(indexAttr) : 0;
       
       // Get the actual rendered height of the element
       const height = el.getBoundingClientRect().height;
@@ -74,7 +73,7 @@ const Messages = forwardRef<
 
   // Handle scroll events
   const handleScroll = () => {
-    if (isAutoScrollingRef.current) return;
+    if (isAutoScrollingRef.current || isMeasuringRef.current) return;
     
     const element = parentRef.current;
     if (!element) return;
@@ -86,6 +85,23 @@ const Messages = forwardRef<
     setShouldAutoScroll(isNearBottom);
   };
 
+  // Force re-measurement when messages change
+  useEffect(() => {
+    // If messages were added, force a recalculation
+    if (messages.length !== prevMessagesLengthRef.current) {
+      // Reset all measurements to ensure proper layout
+      virtualizer.measure();
+      
+      // Set flag to avoid scroll handlers during measurement
+      isMeasuringRef.current = true;
+      
+      // Give a little time for the DOM to update
+      setTimeout(() => {
+        isMeasuringRef.current = false;
+      }, 50);
+    }
+  }, [messages.length, virtualizer]);
+
   // Auto-scroll on new messages
   useEffect(() => {
     // Check if new messages were added
@@ -93,6 +109,11 @@ const Messages = forwardRef<
       setTimeout(() => {
         if (bottomRef.current) {
           isAutoScrollingRef.current = true;
+          
+          // Ensure latest messages are measured before scrolling
+          virtualizer.measure();
+          
+          // Scroll to bottom
           bottomRef.current.scrollIntoView({ behavior: 'smooth' });
           
           setTimeout(() => {
@@ -106,17 +127,19 @@ const Messages = forwardRef<
     if (prevMessagesLengthRef.current === 0 && messages.length > 0) {
       setTimeout(() => {
         if (bottomRef.current) {
+          virtualizer.measure();
           bottomRef.current.scrollIntoView({ behavior: 'auto' });
         }
       }, 100);
     }
     
     prevMessagesLengthRef.current = messages.length;
-  }, [messages.length, shouldAutoScroll]);
+  }, [messages.length, shouldAutoScroll, virtualizer]);
 
   // Initial scroll to bottom - only once
   useEffect(() => {
     if (bottomRef.current && messages.length > 0) {
+      virtualizer.measure();
       bottomRef.current.scrollIntoView({ behavior: 'auto' });
     }
     
@@ -126,8 +149,20 @@ const Messages = forwardRef<
     };
   }, []); // Empty deps to run only once
 
+  // For window resize events - remeasure everything
+  useEffect(() => {
+    const handleResize = () => {
+      virtualizer.measure();
+    };
+    
+    window.addEventListener('resize', handleResize);
+    return () => {
+      window.removeEventListener('resize', handleResize);
+    };
+  }, [virtualizer]);
+
   // Render each message type
-  const renderMessage = (msg: any, index: number) => {
+  const renderMessage = (msg: any) => {
     // Handle date markers
     if (msg.isDateMarker) {
       return (
@@ -168,6 +203,7 @@ const Messages = forwardRef<
             "w-[80%]",
             "bg-card",
             "border border-border rounded",
+            "my-2", // Add consistent spacing
             msg.type === "user_message" ? "ml-auto" : "",
           )}
           ref={(el) => setMessageRef?.(msg.id, el as HTMLDivElement)}
@@ -235,9 +271,11 @@ const Messages = forwardRef<
                 left: 0,
                 width: '100%',
                 transform: `translateY(${virtualRow.start}px)`,
+                paddingTop: '8px',
+                paddingBottom: '8px'
               }}
             >
-              {renderMessage(msg, virtualRow.index)}
+              {renderMessage(msg)}
             </div>
           );
         })}
@@ -255,6 +293,7 @@ const Messages = forwardRef<
           className="fixed bottom-28 right-8 bg-primary text-white rounded-full p-3 shadow-lg z-10"
           onClick={() => {
             setShouldAutoScroll(true);
+            virtualizer.measure(); // Ensure all messages are measured
             bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
           }}
           aria-label="Scroll to bottom"
