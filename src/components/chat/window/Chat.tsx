@@ -36,6 +36,8 @@ export default function ClientComponent({ sessionId: urlSessionId, scrollToMessa
   const [allSessions, setAllSessions] = useState<any[]>([]);
   const [allMessages, setAllMessages] = useState<any[]>([]);
 
+  const messageHistory = useSessionStore(state => state.messageHistory);
+
   // Helper function to set message refs with proper typing
   const setMessageRef = (id: string, el: HTMLDivElement | null) => {
     if (id && el) {
@@ -366,8 +368,16 @@ export default function ClientComponent({ sessionId: urlSessionId, scrollToMessa
     console.log('Final combined messages count:', result.length);
     console.log('Sample final combined messages:', result.slice(0, 2));
 
+    // Include message history
+    messageHistory.forEach(msg => {
+      const msgId = msg.id || createMessageId(msg);
+      if (msgId) {
+        messageMap.set(msgId, msg);
+      }
+    });
+
     return result;
-  }, [convertedAllMessages, messagesWithIds, apiMessages, urlSessionId]);
+  }, [convertedAllMessages, messagesWithIds, apiMessages, urlSessionId, messageHistory]);
 
   // Add date markers and other markers
   const messagesWithMarkers = useMemo(() => {

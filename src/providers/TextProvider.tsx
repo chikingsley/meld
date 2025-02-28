@@ -7,11 +7,11 @@ import type {
   JSONMessage,
   UserTranscriptMessage,
 } from '@/types/hume-messages';
-import { keepLastN } from '@/lib/hume/keepLastN';
+// import { keepLastN } from '@/lib/hume/keepLastN';
 import { useCompletions } from '@/hooks/useCompletions';
 
 interface TextMessagesOptions {
-  messageHistoryLimit: number;
+  // messageHistoryLimit: number;
   onMessage?: (message: JSONMessage) => void;
 }
 
@@ -33,7 +33,7 @@ async function getEmotions(text: string) {
 }
 
 export function useText({
-  messageHistoryLimit = 100,
+  // messageHistoryLimit = 100,
   onMessage,
 }: TextMessagesOptions) {
   const { messages, setMessages } = useSessionStore();
@@ -51,7 +51,8 @@ export function useText({
     sessionId: currentSessionId!,
     onMessage: (message) => {
       onMessage?.(message);
-      setMessages(prev => keepLastN(messageHistoryLimit, prev.concat([message])));
+      // setMessages(prev => keepLastN(messageHistoryLimit, prev.concat([message])));
+      setMessages(prev => [...prev, message]);
       if (message.type === 'assistant_message') {
         setLastAssistantMessage(message);
       }
@@ -114,7 +115,8 @@ export function useText({
         }));
 
       // Update messages state with new user message
-      const updatedMessages = keepLastN(messageHistoryLimit, messages.concat([userMessage]));
+      // const updatedMessages = keepLastN(messageHistoryLimit, messages.concat([userMessage]));
+      const updatedMessages = [...messages, userMessage];
       setMessages(updatedMessages);
 
       // Send completion with history (current message added by useCompletions)
@@ -123,14 +125,15 @@ export function useText({
       console.error('Error in text messages:', error);
       throw error;
     }
-  }, [messageHistoryLimit, sendCompletion, setMessages, onMessage, currentSessionId, createSession]);
+  // }, [messageHistoryLimit, sendCompletion, setMessages, onMessage, currentSessionId, createSession]);
+  }, [sendCompletion, setMessages, onMessage, currentSessionId, createSession]);
 
   // Reset the session creation flag when we switch to a new session
   // or when we clear messages
   const clearMessages = useCallback(() => {
-    setMessages([]);
-    setLastUserMessage(null);
-    setLastAssistantMessage(null);
+    // setMessages([]);
+    // setLastUserMessage(null);
+    // setLastAssistantMessage(null);
     hasCreatedSessionRef.current = false;
   }, [setMessages]);
   

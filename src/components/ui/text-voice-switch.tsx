@@ -1,4 +1,4 @@
-// src/components/ui/enhanced-text-voice-switch.tsx
+// src/components/ui/text-voice-switch.tsx
 import { useState } from 'react';
 import { SidebarMenu, SidebarMenuItem } from "@/components/ui/sidebar";
 import { motion, AnimatePresence } from "framer-motion";
@@ -15,8 +15,8 @@ export const TextVoiceSwitch = ({ isVoiceMode, onModeChange }: TextVoiceSwitchPr
   
   return (
     <SidebarMenu>
-      <SidebarMenuItem className="px-2">
-        <div className="w-full border border-muted rounded-lg p-3 relative overflow-hidden">
+      <SidebarMenuItem>
+        <div className="w-[full] border border-muted rounded-lg p-3 relative overflow-hidden">
           {/* Main Toggle Switch */}
           <div 
             className={cn(

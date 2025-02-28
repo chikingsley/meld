@@ -157,7 +157,7 @@ export function useChat(sessionId: string | null) {
     messages: messagesWithMarkers,
     isLoading: store.apiLoading,
     addMessage: store.addMessage,
-    clearMessages: store.clearMessages,
+    // clearMessages: store.clearMessages,
     storedMessages: store.storedMessages,
     apiMessages: store.apiMessages
   };

@@ -1,9 +1,6 @@
 import * as React from "react"
 import { Command, LogIn } from "lucide-react"
 import { SignInButton, SignedIn, SignedOut } from "@clerk/clerk-react"
-import { useNavigate } from "react-router-dom"
-
-import { NavSessions } from "@/components/sidebar/nav-sessions"
 import { NavUser } from "@/components/sidebar/nav-user"
 import { TextVoiceSwitch } from "@/components/ui/text-voice-switch"
 import {
@@ -20,44 +17,9 @@ import { useSessionContext } from "@/providers/SessionProvider"
 
 export default React.memo(function AppSidebar({ className, ...props }: React.ComponentProps<typeof Sidebar>) {
   const {
-    sessions,
-    createSession,
-    updateSession,
-    deleteSession,
-    selectSession,
     isVoiceMode,
     setVoiceMode,
-    loading,
-    error
   } = useSessionContext();
-
-  const navigate = useNavigate();
-
-  // Combined handlers that include navigation
-  const handleCreateSession = async () => {
-    const sessionId = await createSession();
-    if (sessionId) {
-      navigate(`/session/${sessionId}`);
-    }
-  };
-
-  const handleSelectSession = async (id: string) => {
-    await selectSession(id);
-    navigate(`/session/${id}`);
-  };
-
-  const handleDeleteSession = async (id: string) => {
-    await deleteSession(id);
-    // After deleting, navigate to root if we were viewing that session
-    const currentPath = window.location.pathname;
-    if (currentPath.includes(id)) {
-      navigate('/');
-    }
-  };
-
-  const handleRenameSession = async (id: string, newTitle: string) => {
-    await updateSession(id, { title: newTitle });
-  };
 
   return (
     <Sidebar variant="inset" className={className} {...props}>
@@ -76,37 +38,9 @@ export default React.memo(function AppSidebar({ className, ...props }: React.Com
               </a>
             </SidebarMenuButton>
           </SidebarMenuItem>
-          <SidebarMenuItem>
-            <div className="mt-2 px-2">
-              <Button
-                variant="default"
-                onClick={handleCreateSession}
-                className="w-full flex items-center gap-1.5 rounded-lg"
-                disabled={loading}
-              >
-                <Command className="size-4" />
-                {loading ? 'Creating Chat...' : 'Start New Chat'}
-              </Button>
-              {error && (
-                <p className="text-xs text-destructive mt-2">{error.toString()}</p>
-              )}
-            </div>
-          </SidebarMenuItem>
         </SidebarMenu>
       </SidebarHeader>
       <SidebarContent>
-        {loading && sessions.length === 0 ? (
-          <div className="p-4 text-sm text-muted-foreground">Loading sessions...</div>
-        ) : error && sessions.length === 0 ? (
-          <p className="text-xs text-destructive mt-2">{error.toString()}</p>
-        ) : (
-          <NavSessions
-            sessions={sessions}
-            onSelectSession={handleSelectSession}
-            onDeleteSession={handleDeleteSession}
-            onRenameSession={handleRenameSession}
-          />
-        )}
       </SidebarContent>
       <SidebarFooter>
         <SignedIn>

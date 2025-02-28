@@ -7,14 +7,14 @@ import type {
   JSONMessage,
   UserTranscriptMessage,
 } from '../../types/hume-messages';
-import { keepLastN } from '@/lib/hume/keepLastN';
+// import { keepLastN } from '@/lib/hume/keepLastN';
 
 export const useMessages = ({
   sendMessageToParent,
-  messageHistoryLimit,
+  // messageHistoryLimit,
 }: {
   sendMessageToParent?: (message: JSONMessage) => void;
-  messageHistoryLimit: number;
+  // messageHistoryLimit: number;
 }) => {
   const [voiceMessageMap, setVoiceMessageMap] = useState<
     Record<string, AssistantTranscriptMessage>
@@ -63,20 +63,29 @@ export const useMessages = ({
     */
       switch (message.type) {
         case 'assistant_message':
-          // Store in voiceMessageMap first, linked to audio
+          // for assistant messages, `sendMessageToParent` is called in `onPlayAudio`
+          // in order to line up the transcript event with the correct audio clip
           setVoiceMessageMap((prev) => ({
             ...prev,
             [`${message.id}`]: message,
           }));
           break;
         case 'user_message':
-          // Skip interim messages from history
+          sendMessageToParent?.(message);
+
+          // Exclude interim messages from the messages array.
+          // If end users want to see interim messages, they can use the onMessage
+          // callback because we are still sending them via `sendMessageToParent`.
           if (message.interim === false) {
             setLastUserMessage(message);
             setMessages((prev) => {
-              return keepLastN(messageHistoryLimit, prev.concat([message]));
+              return [...prev, message];
             });
+            // setMessages((prev) => {
+            //   return keepLastN(messageHistoryLimit, prev.concat([message]));
+            // });
           }
+
           break;
         case 'user_interruption':
         case 'error':
@@ -86,22 +95,29 @@ export const useMessages = ({
         case 'assistant_end':
           sendMessageToParent?.(message);
           setMessages((prev) => {
-            return keepLastN(messageHistoryLimit, prev.concat([message]));
+            return [...prev, message];
           });
+          // setMessages((prev) => {
+          //   return keepLastN(messageHistoryLimit, prev.concat([message]));
+          // });
           break;
         case 'chat_metadata':
           console.log('Setting chat metadata:', message);
           sendMessageToParent?.(message);
           setMessages((prev) => {
-            return keepLastN(messageHistoryLimit, prev.concat([message]));
+            return [...prev, message];
           });
+          // setMessages((prev) => {
+          //   return keepLastN(messageHistoryLimit, prev.concat([message]));
+          // });
           setChatMetadata(message);
           break;
         default:
           break;
       }
     },
-    [messageHistoryLimit, sendMessageToParent],
+    // [messageHistoryLimit, sendMessageToParent],
+    [sendMessageToParent],
   );
 
   const onPlayAudio = useCallback(
@@ -111,11 +127,14 @@ export const useMessages = ({
         sendMessageToParent?.(matchingTranscript);
         setLastVoiceMessage(matchingTranscript);
         setMessages((prev) => {
-          return keepLastN(
-            messageHistoryLimit,
-            prev.concat([matchingTranscript]),
-          );
+          return [...prev, matchingTranscript];
         });
+        // setMessages((prev) => {
+        //   return keepLastN(
+        //     messageHistoryLimit,
+        //     prev.concat([matchingTranscript]),
+        //   );
+        // });
         // remove the message from the map to ensure we don't
         // accidentally push it to the messages array more than once
         setVoiceMessageMap((prev) => {
@@ -125,22 +144,23 @@ export const useMessages = ({
         });
       }
     },
-    [voiceMessageMap, sendMessageToParent, messageHistoryLimit],
+    // [voiceMessageMap, sendMessageToParent, messageHistoryLimit],
+    [voiceMessageMap, sendMessageToParent],
   );
 
-  const clearMessages = useCallback(() => {
-    setMessages([]);
-    setLastVoiceMessage(null);
-    setLastUserMessage(null);
-    setVoiceMessageMap({});
-  }, []);
+  // const clearMessages = useCallback(() => {
+  //   setMessages([]);
+  //   setLastVoiceMessage(null);
+  //   setLastUserMessage(null);
+  //   setVoiceMessageMap({});
+  // }, []);
 
   return {
     createConnectMessage,
     createDisconnectMessage,
     onMessage,
     onPlayAudio,
-    clearMessages,
+    // clearMessages,
     lastVoiceMessage,
     lastUserMessage,
   };

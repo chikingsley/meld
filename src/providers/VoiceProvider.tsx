@@ -54,7 +54,7 @@ export type VoiceContextType = {
   disconnect: () => void;
   lastVoiceMessage: AssistantTranscriptMessage | null;
   lastUserMessage: UserTranscriptMessage | null;
-  clearMessages: () => void;
+  // clearMessages: () => void;
   muteAudio: () => void;
   unmuteAudio: () => void;
   readyState: VoiceReadyState;
@@ -103,7 +103,7 @@ export type VoiceProviderProps = PropsWithChildren<SocketConfig> & {
    * @default 100
    * @description The maximum number of messages to keep in memory.
    */
-  messageHistoryLimit?: number;
+  // messageHistoryLimit?: number;
 };
 
 export const useVoice = () => {
@@ -116,8 +116,8 @@ export const useVoice = () => {
 
 export const VoiceProvider: FC<VoiceProviderProps> = ({
   children,
-  clearMessagesOnDisconnect = true,
-  messageHistoryLimit = 100,
+  // clearMessagesOnDisconnect = true,
+  // messageHistoryLimit = 100,
   sessionSettings,
   verboseTranscription = true,
   ...props
@@ -164,7 +164,7 @@ export const VoiceProvider: FC<VoiceProviderProps> = ({
 
   const messageStore = useMessages({
     sendMessageToParent: onMessage.current,
-    messageHistoryLimit,
+    // messageHistoryLimit,
   });
 
   const updateError = useCallback((err: VoiceError | null) => {
@@ -421,10 +421,10 @@ export const VoiceProvider: FC<VoiceProviderProps> = ({
     // Clear state
     cleanupPromises.push(
       new Promise<void>((resolve) => {
-        if (clearMessagesOnDisconnect) {
-          messageStore.clearMessages();
-        }
-        toolStatus.clearStore();
+        // if (clearMessagesOnDisconnect) {
+        //   messageStore.clearMessages();
+        // }
+        // toolStatus.clearStore();
         setIsPaused(false);
         resolve();
       })
@@ -443,7 +443,7 @@ export const VoiceProvider: FC<VoiceProviderProps> = ({
     client,
     player,
     mic,
-    clearMessagesOnDisconnect,
+    // clearMessagesOnDisconnect,
     toolStatus,
     messageStore,
   ]);
@@ -574,10 +574,11 @@ export const VoiceProvider: FC<VoiceProviderProps> = ({
       connect,
       disconnect,
       sendUserInput,
-      clearMessages: messageStore.clearMessages,
+      // clearMessages: messageStore.clearMessages,
       sendSessionSettings,
     }),
-    [connect, disconnect, sendUserInput, messageStore.clearMessages, sendSessionSettings]
+    // [connect, disconnect, sendUserInput, messageStore.clearMessages, sendSessionSettings]
+    [connect, disconnect, sendUserInput, sendSessionSettings]
   );
 
   const contextValue = useMemo(

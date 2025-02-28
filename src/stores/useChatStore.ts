@@ -20,7 +20,7 @@ interface ChatState {
   fetchApiMessages: (sessionId: string) => Promise<void>;
   addMessage: (sessionId: string, message: Message) => Promise<void>;
   loadUserSessions: (userId: string) => Promise<void>;
-  clearMessages: () => void;
+  // clearMessages: () => void;
 }
 
 export const useChatStore = create<ChatState>((set, get) => ({
@@ -88,9 +88,9 @@ export const useChatStore = create<ChatState>((set, get) => ({
     }
   },
 
-  clearMessages: () => set({ 
-    currentMessages: [],
-    storedMessages: [],
-    apiMessages: [] 
-  })
+  // clearMessages: () => set({ 
+  //   currentMessages: [],
+  //   storedMessages: [],
+  //   apiMessages: [] 
+  // })
 }));
