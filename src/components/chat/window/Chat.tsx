@@ -2,7 +2,7 @@
 import { useVoice } from "@/providers/VoiceProvider";
 import Messages from "@/components/chat/window/Messages";
 import BottomControls from "@/components/chat/controls/BottomControls.tsx";
-import { ComponentRef, useEffect, useRef, useState, useMemo, useCallback } from "react";
+import { useEffect, useRef, useState, useMemo, useCallback } from "react";
 import { sessionStore } from "@/db/session-store";
 import { Message } from '@/types/messages';
 import { useSessionStore } from "@/stores/useSessionStore";
@@ -10,6 +10,7 @@ import type { JSONMessage } from "@/types/hume-messages";
 import type { ConnectionMessage } from "@/lib/hume/connection-message";
 import { useUser } from '@clerk/clerk-react';
 import { format, isToday, isYesterday, isSameWeek, isSameYear } from 'date-fns';
+import { useMessageScroll } from '@/hooks/useMessageScroll';
 
 interface ClientComponentProps {
   sessionId: string | null;
@@ -20,12 +21,9 @@ interface ClientComponentProps {
 export default function ClientComponent({ sessionId: urlSessionId, scrollToMessageId }: ClientComponentProps) {
   const { user } = useUser();
 
-  const timeout = useRef<number | null>(null);
-
-  const ref = useRef<ComponentRef<typeof Messages> | null>(null);
   const messageRefs = useRef<{ [key: string]: HTMLDivElement }>({});
 
-  const { clearMessages, status } = useVoice();
+  const { status } = useVoice();
   const messages = useSessionStore(state => state.messages);
   const messagesLength = useSessionStore(state => state.messages.length);
   const [storedMessages, setStoredMessages] = useState<Message[]>([]);
@@ -139,9 +137,6 @@ export default function ClientComponent({ sessionId: urlSessionId, scrollToMessa
           const sessionMessages = await sessionStore.getMessages(urlSessionId);
           setStoredMessages(sessionMessages);
 
-          if (sessionMessages.length === 0) {
-            clearMessages();
-          }
         } catch (error) {
           console.error('Error loading messages:', error);
           setStoredMessages([]);
@@ -153,7 +148,7 @@ export default function ClientComponent({ sessionId: urlSessionId, scrollToMessa
       // Also fetch from API
       fetchApiMessages(urlSessionId);
     }
-  }, [urlSessionId, clearMessages, fetchApiMessages]);
+  }, [urlSessionId, fetchApiMessages]);
 
   // Save messages to session store
   useEffect(() => {
@@ -464,33 +459,6 @@ export default function ClientComponent({ sessionId: urlSessionId, scrollToMessa
     return result;
   }, [combinedMessages, allSessions]);
 
-  // Handle scrolling to specific message
-  useEffect(() => {
-    if (scrollToMessageId && messageRefs.current[scrollToMessageId]) {
-      messageRefs.current[scrollToMessageId].scrollIntoView({
-        behavior: 'smooth',
-        block: 'center'
-      });
-    }
-  }, [scrollToMessageId, messagesWithMarkers]);
-
-  // Handle auto-scrolling
-  useEffect(() => {
-    if (timeout.current) {
-      window.clearTimeout(timeout.current);
-    }
-
-    timeout.current = window.setTimeout(() => {
-      if (!scrollToMessageId && ref.current) {
-        const scrollHeight = ref.current.scrollHeight;
-        ref.current.scrollTo({
-          top: scrollHeight,
-          behavior: "smooth",
-        });
-      }
-    }, 200);
-  }, [messagesLength, scrollToMessageId]);
-
   // Using the previous Messages component, but we'll need to enhance it to handle markers
   // For backward compatibility, we'll convert markers to a format the existing Messages can handle
   const displayMessages = useMemo(() => {
@@ -527,6 +495,12 @@ export default function ClientComponent({ sessionId: urlSessionId, scrollToMessa
     });
   }, [messagesWithMarkers]);
 
+  const { messagesRef } = useMessageScroll({
+    messagesLength: messagesLength,
+    scrollToMessageId,
+    messageRefs: messageRefs.current
+  });
+
   // Add this before your main return statement
   if (apiLoading && storedMessages.length === 0 && messages.length === 0) {
     return (
@@ -548,7 +522,7 @@ export default function ClientComponent({ sessionId: urlSessionId, scrollToMessa
           If you can't modify Messages right now, remove the setMessageRef prop below
         */}
       <Messages
-        ref={ref}
+        ref={messagesRef}
         messages={displayMessages}
         setMessageRef={setMessageRef}
       />

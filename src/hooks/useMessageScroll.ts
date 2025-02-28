@@ -1,36 +1,41 @@
 // src/hooks/useMessageScroll.ts
-import { useEffect, useRef } from 'react';
-import type { ComponentRef } from 'react';
+import { useEffect, useRef, ComponentRef } from 'react';
 import type Messages from '@/components/chat/window/Messages';
 
-export function useMessageScroll(
-  scrollToMessageId: string | undefined,
-  messagesLength: number
-) {
-  const timeout = useRef<number | null>(null);
-  const ref = useRef<ComponentRef<typeof Messages> | null>(null);
-  const messageRefs = useRef<{ [key: string]: HTMLDivElement }>({});
+interface UseMessageScrollOptions {
+  messagesLength: number;
+  scrollToMessageId?: string;
+  messageRefs: { [key: string]: HTMLDivElement };
+}
 
-  // Scroll to specific message
+export function useMessageScroll({ 
+  messagesLength, 
+  scrollToMessageId,
+  messageRefs
+}: UseMessageScrollOptions) {
+  const timeout = useRef<number | null>(null);
+  const messagesRef = useRef<ComponentRef<typeof Messages> | null>(null);
+
+  // Handle scrolling to specific message
   useEffect(() => {
-    if (scrollToMessageId && messageRefs.current[scrollToMessageId]) {
-      messageRefs.current[scrollToMessageId].scrollIntoView({
+    if (scrollToMessageId && messageRefs[scrollToMessageId]) {
+      messageRefs[scrollToMessageId].scrollIntoView({
         behavior: 'smooth',
         block: 'center'
       });
     }
-  }, [scrollToMessageId]);
+  }, [scrollToMessageId, messageRefs]);
 
-  // Auto-scroll to bottom
+  // Handle auto-scrolling
   useEffect(() => {
     if (timeout.current) {
       window.clearTimeout(timeout.current);
     }
 
     timeout.current = window.setTimeout(() => {
-      if (!scrollToMessageId && ref.current) {
-        const scrollHeight = ref.current.scrollHeight;
-        ref.current.scrollTo({
+      if (!scrollToMessageId && messagesRef.current) {
+        const scrollHeight = messagesRef.current.scrollHeight;
+        messagesRef.current.scrollTo({
           top: scrollHeight,
           behavior: "smooth",
         });
@@ -44,14 +49,7 @@ export function useMessageScroll(
     };
   }, [messagesLength, scrollToMessageId]);
 
-  const setMessageRef = (id: string, el: HTMLDivElement | null) => {
-    if (id && el) {
-      messageRefs.current[id] = el;
-    }
-  };
-
   return {
-    ref,
-    setMessageRef
+    messagesRef
   };
 }
