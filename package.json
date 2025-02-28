@@ -50,6 +50,7 @@
     "hume": "^0.9.10",
     "lucide-react": "^0.475.0",
     "meyda": "^5.6.3",
+    "native.js": "^0.0.3",
     "openai": "^4.85.3",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
