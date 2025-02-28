@@ -2,16 +2,16 @@
   "version": 2,
   "buildCommand": "bunx --bun nitro build && bunx --bun vite build",
   "outputDirectory": "dist",
-  "functions": {
-    "api/[...path].js": {
-      "memory": 1024,
-      "maxDuration": 10
+  "framework": "vite",
+  "rewrites": [
+    {
+      "source": "/api/:path*",
+      "destination": "/.output/server/index.mjs"
+    },
+    {
+      "source": "/(.*)",
+      "destination": "/index.html"
     }
-  },
-  "routes": [
-    { "src": "/api/(.*)", "dest": "/api/$1" },
-    { "handle": "filesystem" },
-    { "src": "/(.*)", "dest": "/index.html" }
   ],
   "headers": [
     {
