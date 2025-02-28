@@ -1,6 +1,6 @@
 // server/api/dbhandlers/combinedImport.ts
 import { prisma } from '../../../src/db/prisma';
-import { ChatSession, ChatMessage, normalizeTranscript } from '../files/normalizer';
+import { ChatSession, ChatMessage, normalizeTranscript } from './normalizer';
 import { analyzeEmotions } from '../chat/emotions/hume-text-client';
 
 /**

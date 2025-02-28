@@ -30,6 +30,13 @@
       "@utils/*": ["src/utils/*"]
     }
   },
-  "include": ["src", "server", "api"],
+  "include": [
+    "src/**/*.ts",
+    "src/**/*.d.ts",
+    "src/**/*.tsx",
+    "oldserver/**/*.ts",
+    "nitro.config.ts",
+    "nitro.d.ts"
+  ],
   "references": [{ "path": "./tsconfig.node.json" }]
 }
