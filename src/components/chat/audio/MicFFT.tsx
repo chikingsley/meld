@@ -1,7 +1,6 @@
 // src/components/chat-input/MicFFT.tsx
 import { cn } from "@/utils/classNames";
-import React, { useEffect, useRef } from "react";
-import { AutoSizer } from "react-virtualized";
+import React, { useEffect, useRef, useState } from "react";
 
 const renderFFT = (ctx: CanvasRenderingContext2D, fft: number[], width: number, height: number) => {
   ctx.clearRect(0, 0, width, height);
@@ -25,22 +24,48 @@ const renderFFT = (ctx: CanvasRenderingContext2D, fft: number[], width: number, 
 
 const MicFFT = React.memo(({ fft, className }: { fft: number[]; className?: string }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const sizeRef = useRef<{ width: number; height: number }>({ width: 0, height: 0 });
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [dimensions, setDimensions] = useState({ width: 0, height: 0 });
+
+  // Effect to handle container resizing
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+
+    // Create a resize observer to update dimensions when container resizes
+    const resizeObserver = new ResizeObserver(entries => {
+      const { width, height } = entries[0].contentRect;
+      setDimensions({ width, height });
+    });
+
+    // Start observing the container
+    resizeObserver.observe(container);
+
+    // Initial measurement
+    setDimensions({
+      width: container.clientWidth,
+      height: container.clientHeight
+    });
+
+    return () => {
+      resizeObserver.disconnect();
+    };
+  }, []);
 
   // Effect to handle FFT updates and resizing
   useEffect(() => {
     const canvas = canvasRef.current;
-    if (!canvas) return;
+    if (!canvas || dimensions.width === 0 || dimensions.height === 0) return;
 
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
     // Set canvas size to match display size
-    canvas.width = sizeRef.current.width;
-    canvas.height = sizeRef.current.height;
+    canvas.width = dimensions.width;
+    canvas.height = dimensions.height;
 
-    renderFFT(ctx, fft, sizeRef.current.width, sizeRef.current.height);
-  }, [fft, sizeRef.current.width, sizeRef.current.height]);
+    renderFFT(ctx, fft, dimensions.width, dimensions.height);
+  }, [fft, dimensions.width, dimensions.height]);
 
   // Re-render when theme changes
   useEffect(() => {
@@ -51,7 +76,7 @@ const MicFFT = React.memo(({ fft, className }: { fft: number[]; className?: stri
       const ctx = canvas.getContext("2d");
       if (!ctx) return;
 
-      renderFFT(ctx, fft, sizeRef.current.width, sizeRef.current.height);
+      renderFFT(ctx, fft, dimensions.width, dimensions.height);
     });
 
     observer.observe(document.documentElement, {
@@ -60,26 +85,14 @@ const MicFFT = React.memo(({ fft, className }: { fft: number[]; className?: stri
     });
 
     return () => observer.disconnect();
-  }, [fft]);
+  }, [fft, dimensions.width, dimensions.height]);
 
   return (
-    <div className={"relative size-full"}>
-      {/* @ts-ignore AutoSizer uses direct DOM manipulation with javascript-detect-element-resize */}
-      <AutoSizer>
-        {({ width, height }) => {
-          // Update size ref when dimensions change
-          if (width !== sizeRef.current.width || height !== sizeRef.current.height) {
-            sizeRef.current = { width, height };
-          }
-
-          return (
-            <canvas
-              ref={canvasRef}
-              className={cn("absolute !inset-0 !size-full", className)}
-            />
-          );
-        }}
-      </AutoSizer>
+    <div ref={containerRef} className={"relative size-full"}>
+      <canvas
+        ref={canvasRef}
+        className={cn("absolute !inset-0 !size-full", className)}
+      />
     </div>
   );
 });
