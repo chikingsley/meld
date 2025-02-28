@@ -63,26 +63,20 @@ export const useMessages = ({
     */
       switch (message.type) {
         case 'assistant_message':
-          // for assistant messages, `sendMessageToParent` is called in `onPlayAudio`
-          // in order to line up the transcript event with the correct audio clip
+          // Store in voiceMessageMap first, linked to audio
           setVoiceMessageMap((prev) => ({
             ...prev,
             [`${message.id}`]: message,
           }));
           break;
         case 'user_message':
-          sendMessageToParent?.(message);
-
-          // Exclude interim messages from the messages array.
-          // If end users want to see interim messages, they can use the onMessage
-          // callback because we are still sending them via `sendMessageToParent`.
+          // Skip interim messages from history
           if (message.interim === false) {
             setLastUserMessage(message);
             setMessages((prev) => {
               return keepLastN(messageHistoryLimit, prev.concat([message]));
             });
           }
-
           break;
         case 'user_interruption':
         case 'error':

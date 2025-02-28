@@ -423,7 +423,6 @@ export const VoiceProvider: FC<VoiceProviderProps> = ({
       new Promise<void>((resolve) => {
         if (clearMessagesOnDisconnect) {
           messageStore.clearMessages();
-          // console.log('[VoiceProvider] Message store cleared');
         }
         toolStatus.clearStore();
         setIsPaused(false);
@@ -580,8 +579,6 @@ export const VoiceProvider: FC<VoiceProviderProps> = ({
     }),
     [connect, disconnect, sendUserInput, messageStore.clearMessages, sendSessionSettings]
   );
-
-
 
   const contextValue = useMemo(
     () => ({
