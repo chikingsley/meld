@@ -13,27 +13,27 @@ datasource db {
 model User {
   id           String        @id
   configId     String?       @map("config_id") @db.Uuid
+  customSessionId String?       @map("custom_session_id") @db.Uuid
   createdAt    DateTime?     @default(now()) @map("created_at") @db.Timestamptz(6)
   email        String?       @unique
   systemPrompt String?       @map("system_prompt")
   firstName    String?       @map("first_name")
   lastName     String?       @map("last_name")
   memoryChains MemoryChain[]
-  sessions     Session[]
+  session     Session?
 
   @@map("users")
 }
 
 model Session {
   id        String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  userId    String    @map("user_id")
+  userId    String    @unique @map("user_id")
   timestamp DateTime  @default(now()) @db.Timestamptz(6)
   messages  Message[]
   user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
-  @@index([userId, timestamp])
-  @@map("sessions")
+  @@map("session")
 }
 
 model Message {

@@ -1,6 +1,6 @@
 // server/api/clerk/clerk-webhooks.ts
 import { Webhook } from 'svix';
-import { createHumeConfig, deleteHumeConfig } from './hume-auth';
+import { createHumeConfig, deleteHumeConfig } from '../../../server/utils/hume-auth';
 import { createClerkClient } from '@clerk/backend';
 import { userHandlers } from '../database/user-handlers';
 import { emitUserEvent } from './webhook-events';

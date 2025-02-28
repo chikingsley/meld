@@ -1,10 +1,18 @@
-import { Vector } from '@upstash/vector';
+import { Vector as VectorType } from '@upstash/vector';
 
-let vectorClient: Vector | null = null;
+// Define an interface that includes the methods we're using
+interface VectorClient {
+  upsert(params: { id: string; vector: number[]; metadata?: object }): Promise<any>;
+  query(params: { vector: number[]; topK?: number; includeMetadata?: boolean; includeVectors?: boolean }): Promise<any>;
+  delete(params: { id: string }): Promise<any>;
+}
+
+let vectorClient: VectorClient | null = null;
 
 export function useVectorClient() {
   if (!vectorClient) {
     // Initialize client if it doesn't exist
+    const { Vector } = require('@upstash/vector');
     vectorClient = new Vector({
       url: process.env.UPSTASH_VECTOR_REST_URL || '',
       token: process.env.UPSTASH_VECTOR_REST_TOKEN || '',
@@ -20,6 +28,7 @@ export function useVectorClient() {
 export async function storeVector(id: string, vector: number[], metadata: object = {}): Promise<void> {
   try {
     const client = useVectorClient();
+    if (!client) throw new Error('Vector client not initialized');
     
     await client.upsert({
       id,
@@ -45,6 +54,8 @@ export async function querySimilarVectors(
 ) {
   try {
     const client = useVectorClient();
+    if (!client) throw new Error('Vector client not initialized');
+    
     const { topK = 5, includeMetadata = true, includeVectors = false } = options;
     
     const results = await client.query({
@@ -67,6 +78,8 @@ export async function querySimilarVectors(
 export async function deleteVector(id: string): Promise<void> {
   try {
     const client = useVectorClient();
+    if (!client) throw new Error('Vector client not initialized');
+    
     await client.delete({ id });
   } catch (error) {
     console.error(`Error deleting vector for id ${id}:`, error);
