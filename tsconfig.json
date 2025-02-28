@@ -37,6 +37,6 @@
     "oldserver/**/*.ts",
     "nitro.config.ts",
     "nitro.d.ts"
-  ],
+, "server/utils/hume-auth.ts", "server/utils/hume-types.ts"  ],
   "references": [{ "path": "./tsconfig.node.json" }]
 }
