@@ -2,7 +2,7 @@
 import { cn } from "@/utils/classNames";
 import Expressions from "./Expressions";
 import { motion } from "framer-motion";
-import { ComponentRef, forwardRef, useEffect, useRef, useState, useCallback } from "react";
+import { ComponentRef, forwardRef, useEffect, useRef, useState, useCallback, useMemo } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
 
 interface MessagesProps {
@@ -29,37 +29,96 @@ const Messages = forwardRef<
   
   // Ref for the bottom of the messages
   const bottomRef = useRef<HTMLDivElement | null>(null);
+  
+  // Cache for measured heights - persist between renders
+  const measuredHeightsRef = useRef<Map<string, number>>(new Map());
 
-  // Initial approximate sizes - these will be updated once messages are measured
-  const getInitialSize = useCallback((index: number): number => {
+  // More accurate size estimation algorithm
+  const estimateMessageSize = useCallback((index: number): number => {
     const msg = messages[index];
     if (!msg) return 100;
     
-    if (msg.isDateMarker) return 80;
-    if (msg.isVoiceMarker) return 100;
+    // Check if we've measured this message before
+    if (msg.id && measuredHeightsRef.current.has(msg.id)) {
+      return measuredHeightsRef.current.get(msg.id)!;
+    }
     
-    // A minimal initial guess - the size will be updated once measured
+    // Handle different message types
+    if (msg.isDateMarker) return 80; // Date markers are small
+    if (msg.isVoiceMarker) return 100; // Voice markers are medium
+    
+    // For text messages, estimate based on content length and type
+    if (msg.message?.content) {
+      const content = msg.message.content;
+      const contentLength = typeof content === 'string' ? content.length : 0;
+      
+      // Base height for a message container
+      const baseHeight = 70; // Header + padding
+      
+      // Estimate text height based on content length and estimated wrapping
+      // Assuming average of 50 chars per line at 20px line height
+      const containerWidth = 400; // Approximate width of message container
+      const charsPerLine = containerWidth / 8; // Rough estimate of chars per line
+      const lines = Math.max(1, Math.ceil(contentLength / charsPerLine));
+      const textHeight = lines * 20; // 20px per line
+      
+      // Add extra for expressions if present
+      const expressionHeight = msg.models?.prosody?.scores ? 40 : 0;
+      
+      return baseHeight + textHeight + expressionHeight;
+    }
+    
+    // Default size
     return 150;
   }, [messages]);
 
-  // Setup virtualizer with dynamic sizing capability
+  // Track container width for better size estimation
+  const [containerWidth, setContainerWidth] = useState(400);
+  
+  // Update container width measurement
+  useEffect(() => {
+    if (parentRef.current) {
+      const updateWidth = () => {
+        if (parentRef.current) {
+          const width = parentRef.current.clientWidth * 0.8; // Messages take 80% of width
+          setContainerWidth(width);
+        }
+      };
+      
+      updateWidth();
+      
+      // Set up resize observer to update width
+      const resizeObserver = new ResizeObserver(updateWidth);
+      resizeObserver.observe(parentRef.current);
+      
+      return () => {
+        resizeObserver.disconnect();
+      };
+    }
+  }, []);
+
+  // Setup virtualizer with the improved estimation
   const virtualizer = useVirtualizer({
     count: messages.length,
     getScrollElement: () => parentRef.current,
-    estimateSize: getInitialSize,
-    overscan: 15, // Increased to ensure more items are rendered
-    // Add spacing between items that matches the original gap-4 styling
-    gap: 16,
-    // Configure the measure function to get sizes from the DOM
+    estimateSize: estimateMessageSize,
+    overscan: 15,
+    gap: 16, // Gap between items
+    // Configure the measure function to update our cache
     measureElement: (el) => {
-      // If element doesn't exist, return a default size
       if (!el) return 150;
       
-      // Get the actual rendered height of the element
+      // Get the actual height
       const height = el.getBoundingClientRect().height;
+      
+      // Get the message id from the data attribute
+      const idAttr = el.getAttribute('data-id');
+      if (idAttr) {
+        measuredHeightsRef.current.set(idAttr, height);
+      }
+      
       return height;
     },
-    // Optional: you can make the container scrollToFn smooth for better UX
     scrollToFn: (offset, { behavior }) => {
       const element = parentRef.current;
       if (!element) return;
@@ -85,22 +144,32 @@ const Messages = forwardRef<
     setShouldAutoScroll(isNearBottom);
   };
 
-  // Force re-measurement when messages change
+  // Force virtualizer to update when messages change
   useEffect(() => {
-    // If messages were added, force a recalculation
+    // If messages were added, trigger update
     if (messages.length !== prevMessagesLengthRef.current) {
-      // Reset all measurements to ensure proper layout
-      virtualizer.measure();
-      
-      // Set flag to avoid scroll handlers during measurement
       isMeasuringRef.current = true;
       
-      // Give a little time for the DOM to update
+      // For new messages, create best-guess size estimates
+      const newMessagesStart = prevMessagesLengthRef.current;
+      for (let i = newMessagesStart; i < messages.length; i++) {
+        const msg = messages[i];
+        if (msg.id && !measuredHeightsRef.current.has(msg.id)) {
+          const estimatedSize = estimateMessageSize(i);
+          // Pre-populate with estimates for smoother addition
+          measuredHeightsRef.current.set(msg.id, estimatedSize);
+        }
+      }
+      
+      // Then update the virtualizer
+      virtualizer.measure();
+      
+      // Give time for the DOM to update
       setTimeout(() => {
         isMeasuringRef.current = false;
       }, 50);
     }
-  }, [messages.length, virtualizer]);
+  }, [messages.length, estimateMessageSize, virtualizer]);
 
   // Auto-scroll on new messages
   useEffect(() => {
@@ -109,11 +178,7 @@ const Messages = forwardRef<
       setTimeout(() => {
         if (bottomRef.current) {
           isAutoScrollingRef.current = true;
-          
-          // Ensure latest messages are measured before scrolling
           virtualizer.measure();
-          
-          // Scroll to bottom
           bottomRef.current.scrollIntoView({ behavior: 'smooth' });
           
           setTimeout(() => {
@@ -203,7 +268,7 @@ const Messages = forwardRef<
             "w-[80%]",
             "bg-card",
             "border border-border rounded",
-            "my-2", // Add consistent spacing
+            "p-2", // Add padding inside
             msg.type === "user_message" ? "ml-auto" : "",
           )}
           ref={(el) => setMessageRef?.(msg.id, el as HTMLDivElement)}
@@ -211,7 +276,7 @@ const Messages = forwardRef<
           <div
             className={cn(
               "flex justify-between items-center",
-              "text-xs font-medium leading-none opacity-50 pt-4 px-3",
+              "text-xs font-medium leading-none opacity-50 pt-2 px-2",
             )}
           >
             <span className="capitalize">{msg.message.role}</span>
@@ -224,7 +289,7 @@ const Messages = forwardRef<
               </span>
             )}
           </div>
-          <div className={"pb-3 px-3"}>{msg.message.content}</div>
+          <div className={"pb-2 px-2"}>{msg.message.content}</div>
           {msg.models?.prosody?.scores && (
             <Expressions values={msg.models.prosody.scores} />
           )}
@@ -264,6 +329,7 @@ const Messages = forwardRef<
             <div
               key={msg.id || `msg-${virtualRow.index}`}
               data-index={virtualRow.index}
+              data-id={msg.id}
               ref={virtualizer.measureElement}
               style={{
                 position: 'absolute',
@@ -271,8 +337,6 @@ const Messages = forwardRef<
                 left: 0,
                 width: '100%',
                 transform: `translateY(${virtualRow.start}px)`,
-                paddingTop: '8px',
-                paddingBottom: '8px'
               }}
             >
               {renderMessage(msg)}
