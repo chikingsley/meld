@@ -5,14 +5,29 @@
   "framework": "vite",
   "rewrites": [
     {
-      "source": "/api/(.*)",
-      "destination": "/.output/server/index.mjs"
+      "source": "/api/:path*",
+      "destination": "/api/:path*"
+    },
+    {
+      "source": "/api/:path*/",
+      "destination": "/api/:path*/"
     },
     {
       "source": "/(.*)",
       "destination": "/index.html"
     }
   ],
+  "routes": [
+    {
+      "src": "/api/(.*)",
+      "dest": "/.output/server/index.mjs"
+    }
+  ],
+  "functions": {
+    "api/**/*": {
+      "runtime": "nodejs18.x"
+    }
+  },
   "headers": [
     {
       "source": "/(.*)",

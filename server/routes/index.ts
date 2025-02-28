@@ -1,5 +1,6 @@
-import { defineEventHandler } from "h3";
+import { defineEventHandler, sendRedirect } from "h3";
 
 export default defineEventHandler((event) => {
-  return "Start by editing <code>server/routes/index.ts</code>.";
+  // Redirect to the frontend app
+  return sendRedirect(event, "/index.html");
 });
