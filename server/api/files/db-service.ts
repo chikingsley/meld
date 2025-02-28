@@ -68,13 +68,11 @@ async function createSession(userId: string, sessionData: ChatSession) {
  * and stores it in the metadata.
  */
 async function addMessage(sessionId: string, msg: ChatMessage) {
-    console.log("Received message request for session:", sessionId);
     try {
         // Verify session exists
         const session = await prisma.session.findUnique({
             where: { id: sessionId }
         });
-        console.log('Session exists:', session ? 'yes' : 'no');
 
         if (!session) {
             throw new Error(`Session ${sessionId} not found`);
@@ -84,19 +82,9 @@ async function addMessage(sessionId: string, msg: ChatMessage) {
         let computedProsody = {};
         if (content.trim()) {
             computedProsody = await analyzeEmotions(content);
-            console.log("Computed prosody - DONE");
         }
         
         const role = msg.message?.role || (msg.sender === 'human' ? 'user' : 'assistant');
-        
-        // Debug log before Prisma operation
-        console.log('About to create message in Prisma with data:', {
-            sessionId,
-            role,
-            content,
-            timestamp: new Date(msg.created_at || msg.timestamp || Date.now()),
-            metadata: { prosody: computedProsody }
-        });
 
         const newMessage = await prisma.message.create({
             data: {
@@ -107,7 +95,6 @@ async function addMessage(sessionId: string, msg: ChatMessage) {
                 metadata: { prosody: computedProsody }
             },
         });
-        console.log("Added message with ID:", newMessage.id, "Full message:", newMessage);
 
         // Verify message was created
         const verifyMessage = await prisma.message.findUnique({
@@ -129,6 +116,12 @@ async function addMessage(sessionId: string, msg: ChatMessage) {
  * parses it, normalizes the data, and stores it in the database.
  */
 export async function processTranscript(req: Request) {
+    // Timing metrics
+    const startTime = Date.now();
+    let normalizationTime = 0;
+    let sessionProcessingTimes: number[] = [];
+    let messageProcessingTimes: number[] = [];
+    
     try {
         const userId = req.headers.get("x-user-id");
         if (!userId) {
@@ -140,10 +133,16 @@ export async function processTranscript(req: Request) {
         const noLimitParam = url.searchParams.get('noLimit');
         const limitParam = url.searchParams.get('limit');
         
-        // Determine if limits should be applied
-        const applyNoLimit = noLimitParam === 'true';
+        // Determine if limits should be applied:
+        // - If noLimitParam is 'true', we disable the message limit
+        // - If limitParam is undefined/empty, we also disable the limit since no explicit limit was requested
+        // This gives two ways to disable the limit: ?noLimit=true or by not providing a limit parameter
+        const applyNoLimit = noLimitParam === '' || !limitParam;
         
-        // Set message limit - either from query param, default, or unlimited
+        // Set message limit based on parameters:
+        // 1. If applyNoLimit is true, use MAX_SAFE_INTEGER (effectively unlimited)
+        // 2. If limitParam exists and is a valid number, use that as the limit
+        // 3. Otherwise fall back to default limit of 5 messages
         let MESSAGE_LIMIT;
         if (applyNoLimit) {
             MESSAGE_LIMIT = Number.MAX_SAFE_INTEGER; // Effectively no limit
@@ -172,11 +171,13 @@ export async function processTranscript(req: Request) {
         const fileContent = await file.text();
         console.log("File content length:", fileContent.length);
 
-        // Parse and normalize the transcript
+        // Parse and normalize the transcript - time this operation
+        let normalizeStartTime = Date.now();
         let normalizedSessions;
         try {
             normalizedSessions = normalizeTranscript(fileContent);
-            console.log("Normalized sessions:", normalizedSessions.length);
+            normalizationTime = Date.now() - normalizeStartTime;
+            console.log(`Normalized ${normalizedSessions.length} sessions in ${normalizationTime}ms`);
         } catch (error) {
             console.error("Error normalizing transcript:", error);
             return Response.json(
@@ -192,40 +193,97 @@ export async function processTranscript(req: Request) {
             );
         }
 
-        let totalSessions = 0;
-        let totalMessages = 0;
+        // Calculate total messages to process
+        let totalSessions = normalizedSessions.length;
         let totalAvailableMessages = 0;
-
-        for (const session of normalizedSessions) {
-            console.log("Processing session:", session.name || session.uuid || "Unnamed session");
-            const createdSession = await createSession(userId, session);
-            totalSessions++;
-
+        let totalMessagesToProcess = 0;
+        
+        normalizedSessions.forEach(session => {
             const messages = session.chat_messages || session.messages || [];
             totalAvailableMessages += messages.length;
+            totalMessagesToProcess += Math.min(messages.length, MESSAGE_LIMIT);
+        });
+        
+        console.log(`Total sessions: ${totalSessions}, Total messages available: ${totalAvailableMessages}, Will process: ${totalMessagesToProcess}`);
+
+        let processedSessions = 0;
+        let processedMessages = 0;
+        
+        for (const session of normalizedSessions) {
+            const sessionStartTime = Date.now();
+            console.log(`Processing session ${processedSessions + 1}/${totalSessions}: ${session.name || session.uuid || "Unnamed session"}`);
+            
+            const createdSession = await createSession(userId, session);
+            processedSessions++;
+
+            const messages = session.chat_messages || session.messages || [];
             
             // Only process up to MESSAGE_LIMIT messages per session
             const messagesToProcess = messages.slice(0, MESSAGE_LIMIT);
             console.log(`Processing ${messagesToProcess.length} out of ${messages.length} messages for this session`);
             
-            for (const msg of messagesToProcess) {
+            for (const [index, msg] of messagesToProcess.entries()) {
+                const messageStartTime = Date.now();
                 await addMessage(createdSession.id, msg);
-                totalMessages++;
+                
+                processedMessages++;
+                const messageTime = Date.now() - messageStartTime;
+                messageProcessingTimes.push(messageTime);
+                
+                // Calculate and log progress
+                const percentComplete = ((processedMessages / totalMessagesToProcess) * 100).toFixed(1);
+                const avgMessageTime = messageProcessingTimes.reduce((sum, time) => sum + time, 0) / messageProcessingTimes.length;
+                const remainingMessages = totalMessagesToProcess - processedMessages;
+                const estimatedRemainingTime = (remainingMessages * avgMessageTime) / 1000; // in seconds
+                
+                console.log(`Progress: ${processedMessages}/${totalMessagesToProcess} messages (${percentComplete}%)`);
+                console.log(`Avg time per msg: ${avgMessageTime.toFixed(0)}ms - Est. time: ${estimatedRemainingTime.toFixed(1)}s`);
             }
+            
+            const sessionTime = Date.now() - sessionStartTime;
+            sessionProcessingTimes.push(sessionTime);
+            console.log(`Completed session in ${sessionTime}ms - Avg session time: ${(sessionProcessingTimes.reduce((sum, time) => sum + time, 0) / sessionProcessingTimes.length).toFixed(0)}ms`);
         }
+
+        const totalTime = Date.now() - startTime;
+        const avgMessageTime = messageProcessingTimes.length > 0 ? 
+            messageProcessingTimes.reduce((sum, time) => sum + time, 0) / messageProcessingTimes.length : 0;
+        const avgSessionTime = sessionProcessingTimes.length > 0 ?
+            sessionProcessingTimes.reduce((sum, time) => sum + time, 0) / sessionProcessingTimes.length : 0;
 
         return Response.json({
             success: true,
-            message: `Successfully imported ${totalSessions} sessions with ${totalMessages} messages (limited to ${MESSAGE_LIMIT} messages per session, ${totalAvailableMessages} messages were available in total)`,
-            sessionCount: totalSessions,
-            messageCount: totalMessages,
+            message: `Successfully imported ${processedSessions} sessions with ${processedMessages} messages (limited to ${MESSAGE_LIMIT} messages per session, ${totalAvailableMessages} messages were available in total)`,
+            sessionCount: processedSessions,
+            messageCount: processedMessages,
             totalAvailableMessages: totalAvailableMessages,
-            messageLimit: MESSAGE_LIMIT
+            messageLimit: MESSAGE_LIMIT,
+            timing: {
+                totalProcessingTime: totalTime,
+                normalizationTime: normalizationTime,
+                averageMessageProcessingTime: avgMessageTime,
+                averageSessionProcessingTime: avgSessionTime,
+                messagesPerSecond: (processedMessages / (totalTime / 1000)).toFixed(2)
+            },
+            progress: {
+                processedMessages,
+                totalMessagesToProcess,
+                percentComplete: ((processedMessages / totalMessagesToProcess) * 100).toFixed(1)
+            }
         });
     } catch (error) {
         console.error("Error in processTranscript:", error);
+        const totalTime = Date.now() - startTime;
+        
         return Response.json(
-            { success: false, message: `Error processing transcript: ${(error as Error).message}` },
+            { 
+                success: false, 
+                message: `Error processing transcript: ${(error as Error).message}`,
+                timing: {
+                    totalProcessingTime: totalTime,
+                    normalizationTime
+                }
+            },
             { status: 400 }
         );
     }
