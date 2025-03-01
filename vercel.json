@@ -3,6 +3,11 @@
   "buildCommand": "bun run vercel-build",
   "outputDirectory": "dist",
   "framework": "vite",
+  "functions": {
+    "api/**/*": {
+      "runtime": "nodejs18.x"
+    }
+  },
   "routes": [
     { 
       "src": "/api/webhooks/clerk", 
@@ -25,7 +30,11 @@
       "headers": {
         "cache-control": "public, max-age=31536000, immutable"
       },
+      "dest": "/assets/$1",
       "continue": true
+    },
+    {
+      "handle": "filesystem"
     },
     {
       "src": "/(.*)",
@@ -36,6 +45,10 @@
         "access-control-allow-headers": "*"
       },
       "continue": true
+    },
+    { 
+      "src": "/(|settings|session|session/.*|test)(.*)", 
+      "dest": "/index.html" 
     },
     { 
       "src": "/(.*)", 
