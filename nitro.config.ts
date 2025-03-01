@@ -1,6 +1,4 @@
 // https://nitro.unjs.io/config
-import { defineNitroConfig } from 'nitropack'
-
 export default defineNitroConfig({
   srcDir: "server",
 
@@ -8,7 +6,14 @@ export default defineNitroConfig({
   preset: 'vercel',
 
   routeRules: {
-    // Define route rules for any API endpoints if needed
+    '/blog/**': { swr: true },
+    '/assets/**': { headers: { 'cache-control': 's-maxage=0' } },
+    '/api/v1/**': { cors: true, headers: { 'access-control-allow-methods': 'GET' } },
+    '/old-page': { redirect: '/new-page' }, // uses status code 307 (Temporary Redirect)
+    '/old-page2': { redirect: { to: '/new-page2', statusCode: 301 } },
+    '/old-page/**': { redirect: '/new-page/**' },
+    '/proxy/example': { proxy: 'https://example.com' },
+    '/proxy/**': { proxy: '/api/**' },
     '/api/**': {
       cors: true,
       headers: {
